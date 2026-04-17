@@ -1,0 +1,12 @@
+On rescue entry detected:
+    Get dist to far wall and move forward half of that
+    Scan for obstacles, rescue exit, drop zones and balls and save distance and angle for each detected
+    Move halfway into the rescue area (detect furthest wall) and rescan, using trig to determine exact location of detected objects
+    Locate first silver ball (avoiding obstacles), pick up and put in tray
+    Locate second silver ball (avoiding obstacles), pick up and put in tray
+    Locate black ball (avoiding obstacles), keep in raised claw
+    Use distance travelled from measurement point to determine approximate drop zone, navigate to drop zone using camera and position 100mm from zone
+    Turn around and reverse into drop zone, drop off silver balls
+    Navigate to red drop zone, drop off black ball
+    Using knowledge of exit location, navigate to exit and stop rescue script
+    
