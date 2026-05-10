@@ -15,7 +15,6 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
     ],
-    package_data={'': ['py.typed']},
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer="Toby McFall",
@@ -29,6 +28,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'talker = ml_rescue.ml_rescue:main',
+            'listener = ml_rescue.sub:main',
         ],
     },
 )
