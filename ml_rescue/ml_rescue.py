@@ -1,12 +1,8 @@
-import rclpy
-from rclpy.node import Node
-from std_msgs.msg import String
-from geometry_msgs.msg import Twist
-from rclpy.lifecycle import LifecycleNode, LifecycleState
-from rclpy.lifecycle import TransitionCallbackReturn
-from rclpy.publisher import Publisher
-from rclpy.subscription import Subscription
-from sensor_msgs.msg import Image
+import rclpy# pyright: ignore[reportMissingImports]
+from rclpy.node import Node# pyright: ignore[reportMissingImports]
+from std_msgs.msg import String# pyright: ignore[reportMissingImports]
+from geometry_msgs.msg import Twist # pyright: ignore[reportMissingImports]
+from rclpy.lifecycle import LifecycleNode, LifecycleState # pyright: ignore[reportMissingImports]
 
 class TRescue(LifecycleNode):
     def __init__(self) -> None:
