@@ -11,12 +11,11 @@ from lifecycle_msgs.msg import Transition # pyright: ignore[reportMissingImports
 
 
 class State(Enum):
-    INIT = 0
-    ENTER = 1
-    SCAN = 2
-    TARGET_BALL = 3
-    TARGET_DROPZONE = 4
-    EXIT = 5
+    ENTER = 0
+    SCAN = 1
+    TARGET_BALL = 2
+    TARGET_DROPZONE = 3
+    EXIT = 4
 
 class TRescue(LifecycleNode):
     """
@@ -29,9 +28,9 @@ class TRescue(LifecycleNode):
         
         self.balls_found = 0
         
-        self.rescue_client = self.create_client(ChangeState, 'ml_rescue/change_state')
-        self.motor_client = self.create_client(ChangeState, 'motor_control/change_state')
-        self.camera_client = self.create_client(ChangeState, 'camera_node/change_state')
+        #self.rescue_client = self.create_client(ChangeState, 'ml_rescue/change_state')
+        #self.motor_client = self.create_client(ChangeState, 'motor_control/change_state')
+        #self.camera_client = self.create_client(ChangeState, 'camera_node/change_state')
         
         self.timer = self.create_timer(0.05, self.state_loop)
        
@@ -50,12 +49,8 @@ class TRescue(LifecycleNode):
     
     
     def state_loop(self):
-        if self.current_state == State.INIT:
-            # Initialisation of motors 
-            self.change_node_state(self.motor_client, Transition.TRANSITION_ACTIVATE)
-            self.current_state = State.ENTER
             
-        elif self.current_state == State.ENTER:
+        if self.current_state == State.ENTER:
             # Enter the rescue zone with a node
             self.current_state = State.SCAN
             
@@ -73,9 +68,10 @@ class TRescue(LifecycleNode):
             
         elif self.current_state == State.EXIT:
             # Deactivates all nodes and switches to line following
-            self.change_node_state(self.motor_client, Transition.TRANSITION_DEACTIVATE)
-            self.change_node_state(self.camera_client, Transition.TRANSITION_DEACTIVATE)
-            self.change_node_state(self.rescue_client, Transition.TRANSITION_DEACTIVATE)
+            # self.change_node_state(self.motor_client, Transition.TRANSITION_DEACTIVATE)
+            # self.change_node_state(self.camera_client, Transition.TRANSITION_DEACTIVATE)
+            # self.change_node_state(self.rescue_client, Transition.TRANSITION_DEACTIVATE)
+            pass
             
             
 
