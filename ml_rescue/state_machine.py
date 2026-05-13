@@ -1,12 +1,12 @@
 from enum import Enum
 
-import rclpy  # pyright: ignore[reportMissingImports]
 from lifecycle_msgs.srv import ChangeState  # pyright: ignore[reportMissingImports]
+import rclpy  # pyright: ignore[reportMissingImports]
 from rclpy.lifecycle import (
     LifecycleNode,
     LifecycleState,
     TransitionCallbackReturn,
-)  # pyright: ignore[reportMissingImports]
+)
 
 
 class State(Enum):
@@ -20,6 +20,7 @@ class State(Enum):
 class TRescue(LifecycleNode):
     """
     Switches between states within rescue, allowing for better control of resources.
+
     Lifecycle node
     """
 

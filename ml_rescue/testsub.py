@@ -5,9 +5,9 @@ from std_msgs.msg import String  # pyright: ignore[reportMissingImports]
 
 class TestSubscriber(Node):
     def __init__(self) -> None:
-        super().__init__("test_subscriber")
+        super().__init__('test_subscriber')
         self.subscription = self.create_subscription(
-            String, "topic", self.listener_callback, 10
+            String, 'topic', self.listener_callback, 10
         )
         self.subscription  # prevent unused variable warning
 
