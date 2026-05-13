@@ -1,10 +1,12 @@
 from enum import Enum
 
 import rclpy  # pyright: ignore[reportMissingImports]
-from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn  # pyright: ignore[reportMissingImports]
 from lifecycle_msgs.srv import ChangeState  # pyright: ignore[reportMissingImports]
-from lifecycle_msgs.msg import Transition  # pyright: ignore[reportMissingImports]
-
+from rclpy.lifecycle import (
+    LifecycleNode,
+    LifecycleState,
+    TransitionCallbackReturn,
+)  # pyright: ignore[reportMissingImports]
 
 
 class State(Enum):
@@ -14,13 +16,15 @@ class State(Enum):
     TARGET_DROPZONE = 3
     EXIT = 4
 
+
 class TRescue(LifecycleNode):
     """
     Switches between states within rescue, allowing for better control of resources.
+    Lifecycle node
     """
 
     def __init__(self) -> None:
-        super().__init__('ml_rescue')
+        super().__init__("ml_rescue")
         self.current_state = State.INIT
 
         self.balls_found = 0
@@ -31,19 +35,16 @@ class TRescue(LifecycleNode):
 
         self.timer = self.create_timer(0.05, self.state_loop)
 
-
     def change_node_state(self, client, transition_id):
         req = ChangeState.Request()
         req.transition.id = transition_id  # example: Transition.TRANSITION_ACTIVATE
         future = client.call_async(req)
         rclpy.spin_until_future_complete(self, future)
 
-
-    def on_configure(self, state:LifecycleState):
+    def on_configure(self, state: LifecycleState):
         pass  # hoping that idle button is handled by state machine in robot_core
 
         return TransitionCallbackReturn.SUCCESS
-
 
     def state_loop(self):
 
@@ -61,7 +62,7 @@ class TRescue(LifecycleNode):
 
         elif self.current_state == State.TARGET_DROPZONE:
             # Switch to dropzone tracking node
-             self.current_state = State.EXIT
+            self.current_state = State.EXIT
 
         elif self.current_state == State.EXIT:
             # Deactivates all nodes and switches to line following
@@ -69,7 +70,6 @@ class TRescue(LifecycleNode):
             # self.change_node_state(self.camera_client, Transition.TRANSITION_DEACTIVATE)
             # self.change_node_state(self.rescue_client, Transition.TRANSITION_DEACTIVATE)
             pass
-
 
 
 def main(args=None):
