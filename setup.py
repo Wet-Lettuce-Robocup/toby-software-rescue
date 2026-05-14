@@ -24,11 +24,7 @@ setup(
     maintainer_email='tobymcfall.2026@students.sgcs.nsw.edu.au',
     description='Machine learning package for rescue',
     license='TODO: License declaration',
-    extras_require={
-        'test': [
-            'pytest',
-        ],
-    },
+    extras_require={'test': ['pytest']},
     entry_points={
         'console_scripts': [
             'testpub = ml_rescue.testpub:main',
