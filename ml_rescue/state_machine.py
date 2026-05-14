@@ -1,7 +1,7 @@
 from enum import Enum
 
-import rclpy
 from lifecycle_msgs.srv import ChangeState
+import rclpy
 from rclpy.lifecycle import (
     LifecycleNode,
     LifecycleState,
