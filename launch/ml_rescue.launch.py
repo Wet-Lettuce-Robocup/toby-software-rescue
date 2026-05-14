@@ -5,10 +5,8 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 
 
-def generate_launch_description():
-    config = os.path.join(
-        get_package_share_directory('ml_rescue'), 'config', 'params.yaml'
-    )
+def generate_launch_description() -> LaunchDescription:
+    config = os.path.join(get_package_share_directory('ml_rescue'), 'config', 'params.yaml')
 
     return LaunchDescription(
         [
