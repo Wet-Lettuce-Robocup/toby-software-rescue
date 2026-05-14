@@ -25,7 +25,7 @@ class TRescue(LifecycleNode):
     """
 
     def __init__(self) -> None:
-        super().__init__("ml_rescue")
+        super().__init__('ml_rescue')
         self.current_state = State.INIT
 
         self.balls_found = 0

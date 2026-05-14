@@ -4,6 +4,12 @@ from std_msgs.msg import String  # pyright: ignore[reportMissingImports]
 
 
 class TestSubscriber(Node):
+    """
+    Test subscriber for learning ros
+
+    - subscribes to string messages
+    """
+    
     def __init__(self) -> None:
         super().__init__('test_subscriber')
         self.subscription = self.create_subscription(
@@ -23,5 +29,5 @@ def main(args=None):
     rclpy.shutdown()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

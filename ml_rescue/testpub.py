@@ -1,9 +1,15 @@
 import rclpy  # pyright: ignore[reportMissingImports]
 from rclpy.node import Node  # pyright: ignore[reportMissingImports]
-from rclpy.lifecycle import LifecycleNode  # pyright: ignore[reportMissingImports]
 from std_msgs.msg import String  # pyright: ignore[reportMissingImports]
 
+
 class TestPublisher(Node):
+    """
+    Test publisher for learning ros
+    
+    - publishes string messages
+    """
+    
     def __init__(self) -> None:
         super().__init__('test_publisher')
         self.publisher_ = self.create_publisher(String, 'topic', 10)
@@ -27,5 +33,5 @@ def main(args=None):
     rclpy.shutdown()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
