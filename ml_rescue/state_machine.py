@@ -1,7 +1,7 @@
 from enum import Enum
 
-from lifecycle_msgs.srv import ChangeState  # pyright: ignore[reportMissingImports]
-import rclpy  # pyright: ignore[reportMissingImports]
+import rclpy
+from lifecycle_msgs.srv import ChangeState
 from rclpy.lifecycle import (
     LifecycleNode,
     LifecycleState,
@@ -26,7 +26,7 @@ class TRescue(LifecycleNode):
 
     def __init__(self) -> None:
         super().__init__('ml_rescue')
-        self.current_state = State.INIT
+        self.current_state = State.ENTER
 
         self.balls_found = 0
 
