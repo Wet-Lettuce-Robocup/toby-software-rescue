@@ -5,11 +5,11 @@ from std_msgs.msg import String  # pyright: ignore[reportMissingImports]
 
 class TestPublisher(Node):
     """
-    Test publisher for learning ros
-    
+    Test publisher for learning ros.
+
     - publishes string messages
     """
-    
+
     def __init__(self) -> None:
         super().__init__('test_publisher')
         self.publisher_ = self.create_publisher(String, 'topic', 10)

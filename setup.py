@@ -20,7 +20,7 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer="Toby McFall",
+    maintainer='Toby McFall',
     maintainer_email='tobymcfall.2026@students.sgcs.nsw.edu.au',
     description='Machine learning package for rescue',
     license='TODO: License declaration',
