@@ -13,8 +13,10 @@ class State(Enum):
     ENTER = 0
     SCAN = 1
     TARGET_BALL = 2
-    TARGET_DROPZONE = 3
-    EXIT = 4
+    GRAB_BALL = 3
+    TARGET_DROPZONE = 4
+    DUMP_DROPZONE = 5
+    EXIT = 6
 
 
 class TRescue(LifecycleNode):
@@ -27,12 +29,9 @@ class TRescue(LifecycleNode):
     def __init__(self) -> None:
         super().__init__('ml_rescue')
         self.current_state = State.ENTER
+        self.state_is_active = False
 
         self.balls_found = 0
-
-        # self.rescue_client = self.create_client(ChangeState, 'ml_rescue/change_state')
-        # self.motor_client = self.create_client(ChangeState, 'motor_control/change_state')
-        # self.camera_client = self.create_client(ChangeState, 'camera_node/change_state')
 
         self.timer = self.create_timer(0.05, self.state_loop)
 
@@ -43,34 +42,47 @@ class TRescue(LifecycleNode):
         rclpy.spin_until_future_complete(self, future)
 
     def on_configure(self, state: LifecycleState):
-        pass  # hoping that idle button is handled by state machine in robot_core
 
         return TransitionCallbackReturn.SUCCESS
 
     def state_loop(self):
 
         if self.current_state == State.ENTER:
-            # Enter the rescue zone with a node
-            self.current_state = State.SCAN
+            # Enter the rescue zone
+            if not self.state_is_active:
+                self.get_logger().info('Entering rescue zone')
+                self.state_is_active = True
+
+                # move into centre of rescue zone
+                self.current_state = State.SCAN
 
         elif self.current_state == State.SCAN:
-            # Switch to node to prescan for all objects
+            # Prescan for all objects OR one ball at a time
             self.current_state = State.TARGET_BALL
 
         elif self.current_state == State.TARGET_BALL:
-            # Switch to ball tracking node
+            # Move towards ball
+            self.current_state = State.GRAB_BALL
+
+        elif self.current_state == State.GRAB_BALL:
+            # Pick up ball
             self.current_state = State.TARGET_DROPZONE
 
         elif self.current_state == State.TARGET_DROPZONE:
-            # Switch to dropzone tracking node
+            # Move towards dropzone
+            self.current_state = State.DUMP_DROPZONE
+
+        elif self.current_state == State.DUMP_DROPZONE:
+            # Release balls
             self.current_state = State.EXIT
 
         elif self.current_state == State.EXIT:
-            # Deactivates all nodes and switches to line following
-            # self.change_node_state(self.motor_client, Transition.TRANSITION_DEACTIVATE)
-            # self.change_node_state(self.camera_client, Transition.TRANSITION_DEACTIVATE)
-            # self.change_node_state(self.rescue_client, Transition.TRANSITION_DEACTIVATE)
+            # Locate exit and turn rescue code off
             pass
+
+    def transition_to_state(self, new_state: State):
+        self.current_state = new_state
+        self.state_is_active = False
 
 
 def main(args=None):
