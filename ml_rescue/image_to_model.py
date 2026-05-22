@@ -20,6 +20,7 @@ class ImageToModel:
 
     def start_image_stream(self):
         while True:
+            time.sleep(10)
             ret, frame = cap.read()
             if ret:
                 cv2.imshow('Camera', frame)
