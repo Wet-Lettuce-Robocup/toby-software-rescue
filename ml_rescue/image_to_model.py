@@ -26,7 +26,7 @@ class ImageToModel:
         while True:
             time.sleep(1)
             frame = picam2.capture_array()
-            if frame:
+            if frame is not None:
                 frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                 cv2.imshow('Camera', frame_bgr)
                 wait = cv2.waitKey(1)
@@ -46,6 +46,7 @@ class ImageToModel:
                     self.image_count += 1
             else:
                 print('Failed to capture image')
+                print(f'Frame: {frame}')
 
 
 robot = ImageToModel()
