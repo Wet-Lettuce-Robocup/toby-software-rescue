@@ -32,8 +32,15 @@ class ImageToModel:
 
                 elif wait % 256 == 32:  # SPACE key to capture
                     image_path = f'raw_images/image_{self.image_count}.jpg'
-                    cv2.imwrite(image_path, frame)
+                    image = cv2.imread(image_path)
+                    flipped_image = cv2.flip(image, 1)
+                    cv2.imwrite(image_path, flipped_image)
+
                     print(f'Captured {image_path}')
                     self.image_count += 1
             else:
                 print('Failed to capture image')
+
+
+robot = ImageToModel()
+robot.start_image_stream()
