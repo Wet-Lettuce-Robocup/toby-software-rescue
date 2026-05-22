@@ -2,9 +2,12 @@ import os
 import time
 
 import cv2
+from picamera2 import Picamera2
 
 os.makedirs('raw_images', exist_ok=True)
-cap = cv2.VideoCapture(0)
+picam2 = Picamera2()
+picam2.configure(picam2.create_video_configuration())
+picam2.start()
 
 
 class ImageToModel:
@@ -20,21 +23,22 @@ class ImageToModel:
 
     def start_image_stream(self):
         while True:
-            time.sleep(10)
-            ret, frame = cap.read()
-            if ret:
-                cv2.imshow('Camera', frame)
+            time.sleep(1)
+            frame = picam2.capture_array()
+            if frame:
+                frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                cv2.imshow('Camera', frame_bgr)
                 wait = cv2.waitKey(1)
                 if wait % 256 == 27:  # ESC key to exit
                     print('Exiting image capture')
-                    cap.release()
+                    picam2.stop()
                     cv2.destroyAllWindows()
                     return False
 
                 elif wait % 256 == 32:  # SPACE key to capture
                     image_path = f'raw_images/image_{self.image_count}.jpg'
-                    image = cv2.imread(image_path)
-                    flipped_image = cv2.flip(image, 1)
+
+                    flipped_image = cv2.flip(frame_bgr, 1)
                     cv2.imwrite(image_path, flipped_image)
 
                     print(f'Captured {image_path}')
