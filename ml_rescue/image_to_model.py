@@ -21,8 +21,7 @@ picam2.start()
 
 class ImageToModel:
     """
-    A class to capture images using the Raspberry Pi camera
-    and save them for training a YOLOv8 model.
+    Capture images using the Raspberry Pi camera and saves them for training a YOLOv8 model.
 
     - Captures images from front camera on robot
     - Saves images to 'raw_images' directory
