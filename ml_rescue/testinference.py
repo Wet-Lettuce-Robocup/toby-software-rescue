@@ -14,7 +14,7 @@ class PredictionClass:
     """
 
     def __init__(self):
-        self.model = YOLO('best.pt')  # Loads custom model from training
+        self.model = YOLO('ml_rescue/best.pt')  # Loads custom model from training
 
     def predict_image(self, image_path):
         results = self.model(image_path)  # Runs inference on test image
@@ -22,14 +22,14 @@ class PredictionClass:
 
     def predict_pi_video_stream(self, frames=100):
         if not self.picam2:
-            import cv2
+            # import cv2
             from libcamera import Transform
             from picamera2 import Picamera2
 
             self.picam2 = Picamera2()
             self.picam2.configure(
                 self.picam2.create_video_configuration(
-                    sensor={'output_size': (2304, 1296)},
+                    sensor={'output_size': (2304, 1296)},  # Max is 4608x2592
                     main={'size': (960, 540)},
                     controls={'FrameRate': 10},
                     transform=Transform(hflip=1, vflip=1),  # 180 degree rotation
