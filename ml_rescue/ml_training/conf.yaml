@@ -1,0 +1,7 @@
+path: ml_rescue/ml_training
+
+train: images/train
+val: images/val
+
+names:
+  0: 'ball'
