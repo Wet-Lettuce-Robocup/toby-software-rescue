@@ -1,6 +1,9 @@
 import time
 
+import ultralytics
 from ultralytics import YOLO
+
+print(f'Ultralytics version: {ultralytics.__version__}')
 
 
 class PredictionClass:
