@@ -8,12 +8,16 @@ This project will involve designing and developing a machine learning algorithm 
 ### Current Technologies
 Identify the current hardware, software, languages, frameworks, libraries and platforms relevant to your project. Explain why you selected your chosen tools over alternatives — justify your choices, do not simply list them.
 
+Python, C++, ROS2, 
 
 ### Emerging Technologies
 Identify at least one emerging technology relevant to your project's domain. Describe what it is, how it is developing, and how it could influence your solution now or in the near future.
 
 
+
+
 ### Influence on Design
 Explain how the technologies above shaped specific decisions in your solution. Connect this section to your structure chart — show that your design choices are a direct result of the technologies available to you.
 The quality of your analysis and the strength of the connection to your specific project matters more than the volume of technologies discussed.
+
 

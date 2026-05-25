@@ -1,5 +1,3 @@
-import time
-
 import ultralytics
 from ultralytics import YOLO
 
@@ -31,7 +29,7 @@ class PredictionClass:
             self.picam2.configure(
                 self.picam2.create_video_configuration(
                     sensor={'output_size': (2304, 1296)},  # Max is 4608x2592
-                    main={'size': (960, 540)},
+                    main={'format': 'RGB888', 'size': (960, 540)},
                     controls={'FrameRate': 10},
                     transform=Transform(hflip=1, vflip=1),  # 180 degree rotation
                 )
@@ -41,7 +39,8 @@ class PredictionClass:
 
         for i in range(frames):
             frame = self.picam2.capture_array()
-            results = self.model(frame)  # Runs inference on video frame
+            bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            results = self.model(bgr_frame)  # Runs inference on video frame
             annotated_image = results[0].plot()  # Displays model-annotated video frame
             cv2.imshow('YOLO', annotated_image)
             cv2.waitKey(1)

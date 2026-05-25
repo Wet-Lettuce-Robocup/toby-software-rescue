@@ -10,7 +10,7 @@ picam2 = Picamera2()
 picam2.configure(
     picam2.create_video_configuration(
         sensor={'output_size': (2304, 1296)},
-        main={'size': (960, 540)},
+        main={'format': 'RGB888', 'size': (960, 540)},
         controls={'FrameRate': 10},
         transform=Transform(hflip=1, vflip=1),  # 180 degree rotation
     )
