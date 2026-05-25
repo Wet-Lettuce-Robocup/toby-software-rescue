@@ -39,8 +39,7 @@ class PredictionClass:
 
         for i in range(frames):
             frame = self.picam2.capture_array()
-            bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            results = self.model(bgr_frame)  # Runs inference on video frame
+            results = self.model(frame)  # Runs inference on video frame
             annotated_image = results[0].plot()  # Displays model-annotated video frame
             cv2.imshow('YOLO', annotated_image)
             cv2.waitKey(1)
