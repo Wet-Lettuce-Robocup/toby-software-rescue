@@ -32,7 +32,6 @@ class ImageToModel:
 
     def start_image_stream(self):
         while True:
-            time.sleep(0.1)
             frame = picam2.capture_array()
             if frame is not None:
                 frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)

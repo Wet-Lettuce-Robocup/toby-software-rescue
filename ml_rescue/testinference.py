@@ -15,6 +15,7 @@ class PredictionClass:
 
     def __init__(self):
         self.model = YOLO('ml_rescue/best.pt')  # Loads custom model from training
+        self.picam2 = None  # Placeholder
 
     def predict_image(self, image_path):
         results = self.model(image_path)  # Runs inference on test image
@@ -22,7 +23,7 @@ class PredictionClass:
 
     def predict_pi_video_stream(self, frames=100):
         if not self.picam2:
-            # import cv2
+            import cv2
             from libcamera import Transform
             from picamera2 import Picamera2
 
@@ -41,11 +42,14 @@ class PredictionClass:
         for i in range(frames):
             frame = self.picam2.capture_array()
             results = self.model(frame)  # Runs inference on video frame
-            results[0].show()  # Displays model-annotated video frame
-            time.sleep(0.1)
+            annotated_image = results[0].plot()  # Displays model-annotated video frame
+            cv2.imshow('YOLO', annotated_image)
+            cv2.waitKey(1)
+
+        cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
     pred = PredictionClass()
-    pred.predict_image('test.jpg')
-    # pred.predict_pi_video_stream()
+    # pred.predict_image('test.jpg')
+    pred.predict_pi_video_stream()
