@@ -1,5 +1,4 @@
 import os
-import time
 
 import cv2
 from libcamera import Transform
@@ -36,7 +35,7 @@ class ImageToModel:
             if frame is not None:
                 frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                 cv2.imshow('Camera', frame_bgr)
-                wait = cv2.waitKey(1)
+                wait = cv2.waitKey(100)  # Wait for 100ms
                 if wait % 256 == 27:  # ESC key to exit
                     print('Exiting image capture')
                     picam2.stop()

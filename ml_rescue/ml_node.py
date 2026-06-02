@@ -1,7 +1,8 @@
-from lifecycle_msgs.srv import ChangeState
+import cv2
+from cv_bridge import CvBridge
 import rclpy
 from rclpy.node import Node
-from sensor_msg.msg import Image
+from sensor_msgs.msg import Image
 
 
 class VisionNode(Node):
@@ -16,18 +17,34 @@ class VisionNode(Node):
 
         self.declare_parameter('raw_image_topic', '/front_camera/image_raw')
 
-        self.create_subscription(
+        self.camera_sub = self.create_subscription(
             Image,
             self.get_parameter('raw_image_topic').get_parameter_value().string_value,
             self.image_callback,
             10,
         )
+        self.bridge = CvBridge()
 
     def image_callback(self, msg):
-        self.get_logger().info('Received image yipee!')
+        # Convert ROS Image message to OpenCV image
+        try:
+            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            # self.get_logger().info('Received image')
+            cv2.imshow('Camera View', cv_image)
+            cv2.waitKey(1)
+        except Exception as e:
+            self.get_logger().error(f'Error processing image: {e}')
+            raise
 
-    def change_node_state(self, client, transition_id):
-        req = ChangeState.Request()
-        req.transition.id = transition_id  # example: Transition.TRANSITION_ACTIVATE
-        future = client.call_async(req)
-        rclpy.spin_until_future_complete(self, future)
+
+def main(args=None):
+    rclpy.init(args=args)
+    vision_node = VisionNode()
+    rclpy.spin(vision_node)
+    vision_node.destroy_node()
+    rclpy.shutdown()
+    cv2.destroyAllWindows()
+
+
+if __name__ == '__main__':
+    main()
