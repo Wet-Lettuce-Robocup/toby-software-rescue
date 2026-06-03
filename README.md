@@ -7,6 +7,27 @@ NOTE: There is no 'src' directory within this repository, instead it is called '
 Using vision based ML running on a Hailo NPU to rescue some balls.
 
 
+Notes:
+
+When exporting yolo model to onnx:
+
+`yolo export model=best.pt format=onnx imgsz=640 simplify=True opset=11`
+
+On pi, `sudo apt install hailo-all` and install Hailo Dataflow Compiler + Hailo Model Zoo (or hailo ort??)
+Set up directory `calibration_images` with a few hundred images from the original dataset to calibrate hailo model.
+
+```Bash
+hailomz parse \
+    --ckpt best.onnx \
+    yolov8s
+hailomz optimize \
+    yolov8n \
+    --calib-path calibration_images
+hailomz compile \
+    yolov8n
+    --hw-arch hailo10h
+```
+
 old method:
 git remote add external-origin [URL_OF_REPO]
 git fetch external-origin

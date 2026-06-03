@@ -5,7 +5,8 @@ print(f'Ultralytics version: {ultralytics.__version__}')
 
 
 class PredictionClass:
-    """A class for making predictions using a YOLO model.
+    """
+    A class for making predictions using a YOLO model.
 
     - Loads a custom-trained YOLO model
     - Predicts on test images or a video stream from Raspberry Pi camera
