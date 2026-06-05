@@ -13,7 +13,9 @@ When exporting yolo model to onnx:
 
 `yolo export model=best.pt format=onnx imgsz=640 simplify=True opset=11`
 
-On pi, `sudo apt install hailo-all` and install Hailo Dataflow Compiler + Hailo Model Zoo (or hailo ort??)
+On pi, `sudo apt install dkms` `sudo apt install hailo-h10-all` and install Hailo Dataflow Compiler + Hailo Model Zoo
+`hailortcli fw-control identify` to test functionality
+
 Set up directory `calibration_images` with a few hundred images from the original dataset to calibrate hailo model.
 
 ```Bash
