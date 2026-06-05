@@ -1,6 +1,6 @@
 import cv2
 from cv_bridge import CvBridge
-from hailort import HEF, Device
+from hailort import HEF
 import numpy as np
 import rclpy
 from rclpy.node import Node
