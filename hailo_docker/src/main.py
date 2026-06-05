@@ -65,7 +65,7 @@ def parse_onnx(
 
 def load_calibration_dataset(calib_folder, target_size=(640, 640)):
     """
-    A function that loads and preprocesses images from the specified folder.
+    A function used to load and preprocess images from the specified folder in the main function.
 
     Args:
         calib_folder (str): Path to the folder with calibration images.
