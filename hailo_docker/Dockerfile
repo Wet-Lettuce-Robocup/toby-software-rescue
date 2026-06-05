@@ -36,10 +36,8 @@ RUN apt-get update && \
 # Set working directory for our app
 WORKDIR /app
 
-# Create a virtual environment in /venv
 # The venv is required, otherwise the Hailo Dataflow Compiler will not work properly
-RUN python3.10 -m venv /venv && \
-    ls -l /venv
+RUN python3.10 -m venv /venv
 
 # Set environment variables so that the venv is used
 ENV VIRTUAL_ENV=/venv
@@ -74,3 +72,9 @@ RUN adduser -u 5678 --disabled-password --gecos "" appuser && \
 # Copy requirements file and install Python dependencies in the venv
 COPY requirements.txt /app/requirements.txt
 RUN pip install -r requirements.txt
+
+USER appuser
+
+# Set environment variables so the Hailo SDK can find its shared libraries and binaries
+ENV LD_LIBRARY_PATH=/opt/hailo/usr/lib
+ENV PATH=$PATH:/opt/hailo/usr/bin

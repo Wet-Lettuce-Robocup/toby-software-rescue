@@ -4,15 +4,17 @@ version: '3.9'
 
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
+    image: hailo-base:latest
 
     volumes:
       - ./src:/app/src
       - ./models:/app/models
       - ./calibration_images:/app/calibration_images
       - ./output:/app/output
+
+    command: 
+    - python
+    - src/main.py
 
     stdin_open: true
     tty: true

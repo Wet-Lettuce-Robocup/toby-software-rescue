@@ -1,3 +1,8 @@
+src/
+models/
+calibration_images/
+output/
 .vscode/
+.git/
 __pycache__/
 *.pyc
