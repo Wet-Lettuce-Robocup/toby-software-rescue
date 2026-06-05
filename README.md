@@ -23,10 +23,10 @@ hailomz parse \
     --ckpt best.onnx \
     yolov8s
 hailomz optimize \
-    yolov8n \
+    yolov8s \
     --calib-path calibration_images
 hailomz compile \
-    yolov8n
+    yolov8s
     --hw-arch hailo10h
 ```
 

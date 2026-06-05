@@ -97,8 +97,8 @@ def load_calibration_dataset(calib_folder, target_size=(640, 640)):
 def main():
     onnx_path = './models/best.onnx'
     calib_folder = './calibration_images'
-    net_name = 'yolov8n'
-    hw_arch = 'hailo8l'
+    net_name = 'yolov8s'
+    hw_arch = 'hailo10h'
 
     parse_onnx(onnx_path, calib_folder, net_name, hw_arch)
 
