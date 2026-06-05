@@ -1,4 +1,4 @@
-# main.py, credit to https://medium.com/@mgreiner79/how-to-run-hailo-dataflow-compiler-using-docker-on-windows-8442a0215c53
+# main.py, credit to: https://medium.com/@mgreiner79
 
 import os
 
@@ -65,7 +65,8 @@ def parse_onnx(
 
 def load_calibration_dataset(calib_folder, target_size=(640, 640)):
     """
-    Loads and preprocesses images from the specified folder.
+    A function that loads and preprocesses images from the specified folder.
+
     Args:
         calib_folder (str): Path to the folder with calibration images.
         target_size (tuple): Desired image size as (width, height).
