@@ -1,0 +1,7 @@
+onnx==1.16.0
+onnx-simplifier==0.4.36
+onnxsim==0.4.36
+opencv-python==4.11.0.86
+pillow==11.1.0
+ultralytics==8.3.92
+numpy==1.23.3
