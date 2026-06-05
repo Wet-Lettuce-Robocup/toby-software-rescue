@@ -4,9 +4,15 @@ version: '3.9'
 
 services:
   app:
-    image: my_image:latest
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
+
     volumes:
-      - .:/app
+      - ./src:/app/src
+      - ./models:/app/models
+      - ./calibration_images:/app/calibration_images
+      - ./output:/app/output
+
+    stdin_open: true
+    tty: true
