@@ -10,7 +10,11 @@ from PIL import Image
 
 
 def parse_onnx(
-    onnx_path: str, calib_folder: str, net_name: str, hw_arch: str, target_size: tuple = (640, 640)
+    onnx_path: str,
+    calib_folder: str,
+    net_name: str,
+    hw_arch: str,
+    target_size: tuple[int, int] = (640, 640),
 ):
     # -------------------------------
     # Step 1. Simplify the ONNX model
@@ -63,16 +67,21 @@ def parse_onnx(
     print(f'HAR file saved to: {har_file}')
 
 
-def load_calibration_dataset(calib_folder, target_size=(640, 640)):
+def load_calibration_dataset(
+    calib_folder: str, target_size: tuple[int, int] = (640, 640)
+) -> np.ndarray:
     """
     Load and preprocess images from the specified folder.
 
     Args:
         calib_folder (str): Path to the folder with calibration images.
-        target_size (tuple): Desired image size as (width, height).
+        target_size (tuple[int, int]): Desired image size as (width, height).
+
     Returns:
-        np.ndarray: A numpy array of shape (num_images, height, width, 3) in float32.
+        numpy.ndarray: Array of shape (num_images, height, width, 3)
+            with dtype float32.
     """
+
     image_files = [
         os.path.join(calib_folder, f)
         for f in os.listdir(calib_folder)
