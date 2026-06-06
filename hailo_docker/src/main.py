@@ -73,13 +73,17 @@ def load_calibration_dataset(
     """
     Load and preprocess images from the specified folder.
 
-    Args:
-        calib_folder (str): Path to the folder with calibration images.
-        target_size (tuple[int, int]): Desired image size as (width, height).
+    Args
+    ----
+        calib_folder : str
+            Path to the folder with calibration images.
+        target_size : tuple[int, int]
+            Desired image size as (width, height).
 
-    Returns:
-        numpy.ndarray: Array of shape (num_images, height, width, 3)
-            with dtype float32.
+    Returns
+    -------
+        numpy.ndarray
+            Array of shape (num_images, height, width, 3) with dtype float32.
     """
     image_files = [
         os.path.join(calib_folder, f)
