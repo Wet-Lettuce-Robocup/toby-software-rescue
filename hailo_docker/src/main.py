@@ -84,6 +84,7 @@ def load_calibration_dataset(
     -------
         numpy.ndarray
             Array of shape (num_images, height, width, 3) with dtype float32.
+
     """
     image_files = [
         os.path.join(calib_folder, f)
