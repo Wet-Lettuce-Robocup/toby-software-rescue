@@ -11,9 +11,8 @@ from rclpy.lifecycle import (
 )
 from rclpy.publisher import Publisher
 from rclpy.timer import Timer
-from std_msgs.msg import String
-
 from rescue_msgs.srv import SetRescueState
+from std_msgs.msg import String
 
 
 class States(Enum):
