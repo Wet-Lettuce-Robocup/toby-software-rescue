@@ -2,6 +2,7 @@ from enum import Enum
 
 from geometry_msgs.msg import Twist
 from lifecycle_msgs.srv import ChangeState
+from rescue_msgs.srv import SetRescueState
 import rclpy
 from rclpy.lifecycle import (
     LifecycleNode,
@@ -37,10 +38,25 @@ class TRescue(LifecycleNode):
         self.state_is_active = False
 
         self.balls_found = 0
+        self.isActive = False
 
         self.twist_pub: Publisher | None = None
         self.pub: LifecyclePublisher | None = None
         self.timer: Timer | None = None
+
+        self.rescue_state_srv = self.create_service(
+            SetRescueState, 'set_rescue_state', self.set_rescue_state_callback
+        )
+
+    def set_rescue_state_callback(self, request, response):
+        try:
+            self.transition_to_state(States(request.state))
+            response.success = True
+            response.message = f'Rescue now in {States(request.state).name} state.'
+        except ValueError:
+            response.success = False
+            response.message = f'Invalid state: {request.state}'
+        return response
 
     def change_node_state(self, client, transition_id):
         req = ChangeState.Request()
