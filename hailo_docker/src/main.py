@@ -16,13 +16,21 @@ END_NODES = [
     '/model.22/cv3.2/cv3.2.2/Conv',
 ]
 
+process_config_one = './src/nms_config_1_class.json'
+process_config_six = './src/nms_config_6_class.json'
+
+alls_script = (
+    'normalization1 = normalization([0.0, 0.0, 0.0], [255.0, 255.0, 255.0])\n'
+    'model_optimization_flavor(optimization_level=2, compression_level=1)\n'
+    f'nms_postprocess("{process_config_one}", meta_arch=yolov8, engine=hailort)\n'
+)
+
 
 def parse_onnx(
     onnx_path: str,
     calib_folder: str,
     net_name: str,
     hw_arch: str,
-    num_classes: int,
     target_size: tuple[int, int] = (640, 640),
 ):
     # -------------------------------
@@ -45,13 +53,16 @@ def parse_onnx(
     hn, params = runner.translate_onnx_model(
         model_path=onnx_path,
         net_name=net_name,
-        # end_nodes_names=END_NODES,
+        end_nodes_names=END_NODES,
     )
     print('Model translation to Hailo format completed.')
 
     har_file = f'./models/{net_name}_raw.har'
     runner.save_har(har_file)
     print(f'Raw HAR file saved to: {har_file}')
+
+    runner.load_model_script(alls_script)
+
     # -----------------------------------------------------
     # Step 3. Quantize the model using a calibration dataset
     # -----------------------------------------------------
@@ -106,7 +117,7 @@ def load_calibration_dataset(
     for img_file in sorted(image_files):
         img = Image.open(img_file).convert('RGB')
         # Resize using bilinear interpolation
-        img = img.resize(target_size, Image.BILINEAR)  # does this work
+        img = img.resize(target_size, resample=Image.BILINEAR)  # does this work
         img_np = np.array(img).astype(np.float32)
         images.append(img_np)
 
@@ -120,9 +131,8 @@ def main():
     calib_folder = './calibration_images'
     net_name = 'robotyolov8s'
     hw_arch = 'hailo10h'
-    num_classes = 1
 
-    parse_onnx(onnx_path, calib_folder, net_name, hw_arch, num_classes=num_classes)
+    parse_onnx(onnx_path, calib_folder, net_name, hw_arch)
 
 
 if __name__ == '__main__':
