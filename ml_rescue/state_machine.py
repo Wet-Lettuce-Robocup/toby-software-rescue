@@ -5,9 +5,12 @@ from lifecycle_msgs.srv import ChangeState
 import rclpy
 from rclpy.lifecycle import (
     LifecycleNode,
+    LifecyclePublisher,
     State,
     TransitionCallbackReturn,
 )
+from rclpy.publisher import Publisher
+from rclpy.timer import Timer
 from std_msgs.msg import String
 
 
@@ -35,11 +38,9 @@ class TRescue(LifecycleNode):
 
         self.balls_found = 0
 
-        self.twist_pub = None
-
-        self.pub = None
-        self.isActive = False
-        self.timer = None
+        self.twist_pub: Publisher | None = None
+        self.pub: LifecyclePublisher | None = None
+        self.timer: Timer | None = None
 
     def change_node_state(self, client, transition_id):
         req = ChangeState.Request()
@@ -66,12 +67,17 @@ class TRescue(LifecycleNode):
 
     def on_cleanup(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Cleaning up rescue node')
-        self.destroy_timer(self.timer)
-        self.destroy_publisher(self.pub)
-        self.destroy_publisher(self.twist_pub)
+        if self.timer is not None:
+            self.destroy_timer(self.timer)
+        if self.pub is not None:
+            self.destroy_publisher(self.pub)
+        if self.twist_pub is not None:
+            self.destroy_publisher(self.twist_pub)
+
         self.timer = None
         self.pub = None
         self.twist_pub = None
+
         return TransitionCallbackReturn.SUCCESS
 
     def on_shutdown(self, state: State) -> TransitionCallbackReturn:
