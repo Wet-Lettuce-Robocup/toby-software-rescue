@@ -8,12 +8,12 @@ This project will involve designing and developing a machine learning algorithm 
 ### Current Technologies
 Identify the current hardware, software, languages, frameworks, libraries and platforms relevant to your project. Explain why you selected your chosen tools over alternatives — justify your choices, do not simply list them.
 
-Python, C++, ROS2, Raspberry Pi, STM32, Ruff
+Python, C++, ROS2, Raspberry Pi, STM32, Ruff, opencv
 
 ### Emerging Technologies
 Identify at least one emerging technology relevant to your project's domain. Describe what it is, how it is developing, and how it could influence your solution now or in the near future.
 
-Machine Learning
+Machine Learning (Hailo, YOLO, CVAT)
 
 
 ### Influence on Design
