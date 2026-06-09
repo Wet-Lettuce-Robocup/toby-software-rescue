@@ -2,7 +2,6 @@ from enum import Enum
 
 from geometry_msgs.msg import Twist
 from lifecycle_msgs.srv import ChangeState
-from rescue_msgs.srv import SetRescueState
 import rclpy
 from rclpy.lifecycle import (
     LifecycleNode,
@@ -13,6 +12,8 @@ from rclpy.lifecycle import (
 from rclpy.publisher import Publisher
 from rclpy.timer import Timer
 from std_msgs.msg import String
+
+from rescue_msgs.srv import SetRescueState
 
 
 class States(Enum):
