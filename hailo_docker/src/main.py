@@ -5,8 +5,16 @@ import os
 from hailo_sdk_client import ClientRunner
 import numpy as np
 import onnx
-from onnxsim import simplify
 from PIL import Image
+
+END_NODES = [
+    '/model.22/cv2.0/cv2.0.2/Conv',
+    '/model.22/cv3.0/cv3.0.2/Conv',
+    '/model.22/cv2.1/cv2.1.2/Conv',
+    '/model.22/cv3.1/cv3.1.2/Conv',
+    '/model.22/cv2.2/cv2.2.2/Conv',
+    '/model.22/cv3.2/cv3.2.2/Conv',
+]
 
 
 def parse_onnx(
@@ -14,27 +22,19 @@ def parse_onnx(
     calib_folder: str,
     net_name: str,
     hw_arch: str,
+    num_classes: int,
     target_size: tuple[int, int] = (640, 640),
 ):
     # -------------------------------
-    # Step 1. Simplify the ONNX model
+    # Step 1. Load the ONNX model and test outputs
     # -------------------------------
 
     # Load the ONNX model
     model = onnx.load(onnx_path)
-
-    # Simplify the model
-    model_simp, check = simplify(model)
-    if not check:
-        raise RuntimeError('Simplified ONNX model validation failed.')
-
-    # Save the simplified model to a new file
-    simplified_onnx_path = os.path.splitext(onnx_path)[0] + '_simplified.onnx'
-    onnx.save(model_simp, simplified_onnx_path)
-    print(f'Simplified ONNX model saved to: {simplified_onnx_path}')
+    print([o.name for o in model.graph.output])  # Print output node names for reference
 
     # -----------------------------------------------------
-    # Step 2. Translate the simplified ONNX model to Hailo format
+    # Step 2. Translate the ONNX model to Hailo format
     # -----------------------------------------------------
 
     # Create a ClientRunner instance.
@@ -42,9 +42,16 @@ def parse_onnx(
     runner = ClientRunner(hw_arch=hw_arch, har=None)
 
     # Translate the ONNX model. Optionally, you can supply start and end node names if needed.
-    hn, params = runner.translate_onnx_model(simplified_onnx_path, net_name)
+    hn, params = runner.translate_onnx_model(
+        model_path=onnx_path,
+        net_name=net_name,
+        # end_nodes_names=END_NODES,
+    )
     print('Model translation to Hailo format completed.')
 
+    har_file = f'./models/{net_name}_raw.har'
+    runner.save_har(har_file)
+    print(f'Raw HAR file saved to: {har_file}')
     # -----------------------------------------------------
     # Step 3. Quantize the model using a calibration dataset
     # -----------------------------------------------------
@@ -60,11 +67,12 @@ def parse_onnx(
     print('Model quantization complete.')
 
     # -----------------------------------------------------
-    # Step 4. Save the quantized model as an HAR file
+    # Step 4. Compile the quantized model into a HAR file for deployment
     # -----------------------------------------------------
-    har_file = f'{net_name}_quantized_model.har'
-    runner.save_har(har_file)
-    print(f'HAR file saved to: {har_file}')
+    hef = runner.compile()
+    output_hef_path = f'./models/{net_name}.hef'
+    with open(output_hef_path, 'wb') as f:
+        f.write(hef)
 
 
 def load_calibration_dataset(
@@ -98,7 +106,7 @@ def load_calibration_dataset(
     for img_file in sorted(image_files):
         img = Image.open(img_file).convert('RGB')
         # Resize using bilinear interpolation
-        img = img.resize(target_size, Image.BILINEAR)
+        img = img.resize(target_size, Image.BILINEAR)  # does this work
         img_np = np.array(img).astype(np.float32)
         images.append(img_np)
 
@@ -110,10 +118,11 @@ def load_calibration_dataset(
 def main():
     onnx_path = './models/best.onnx'
     calib_folder = './calibration_images'
-    net_name = 'yolov8s'
+    net_name = 'robotyolov8s'
     hw_arch = 'hailo10h'
+    num_classes = 1
 
-    parse_onnx(onnx_path, calib_folder, net_name, hw_arch)
+    parse_onnx(onnx_path, calib_folder, net_name, hw_arch, num_classes=num_classes)
 
 
 if __name__ == '__main__':

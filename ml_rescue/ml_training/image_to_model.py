@@ -8,8 +8,8 @@ os.makedirs('raw_images', exist_ok=True)
 picam2 = Picamera2()
 picam2.configure(
     picam2.create_video_configuration(
-        sensor={'output_size': (2304, 1296)},
-        main={'format': 'RGB888', 'size': (960, 540)},
+        sensor={'output_size': (2304, 1296)},  # 16:9 aspect ratio
+        main={'format': 'RGB888', 'size': (1920, 1080)},  # 1080p for better performance
         controls={'FrameRate': 10},
         transform=Transform(hflip=1, vflip=1),  # 180 degree rotation
     )

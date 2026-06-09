@@ -1,7 +1,5 @@
 # docker-compose.yaml
 
-version: '3.9'
-
 services:
   app:
     image: hailo-base:latest
@@ -13,8 +11,9 @@ services:
       - ./output:/app/output
 
     command: 
-    - python
-    - src/main.py
+      - bash
+    # - python
+    # - src/main.py
 
     stdin_open: true
     tty: true

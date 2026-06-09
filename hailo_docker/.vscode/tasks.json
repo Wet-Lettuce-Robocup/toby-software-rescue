@@ -20,7 +20,8 @@
                 // "context" is the build context—the directory sent to Docker during the build. Usually, this is your project root.
                 "context": "${workspaceFolder}",
                 // "pull": true ensures that Docker pulls the latest version of base images used in your Dockerfile.
-                "pull": true
+                "pull": true,
+                "customOptions": "--progress=plain"
             }
         },
         {
@@ -30,10 +31,6 @@
             // This label is used to reference this task (for example, in launch.json as the preLaunchTask).
             // It is user-defined. You can call it whatever you want, but it should match what you call in launch.json.
             "label": "docker-run: debug",
-            // "dependsOn" ensures that the docker-build task runs first, so that the latest image is available.
-            "dependsOn": [
-                "docker-build"
-            ],
             // The "python" section is a hint to the Docker extension that you want to debug a Python file.
             // This causes the extension to automatically inject debugpy into the container startup command.
             "python": {
