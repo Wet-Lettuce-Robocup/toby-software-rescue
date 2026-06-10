@@ -1,5 +1,13 @@
 # Request
-int32 state
+uint8 ENTER=0
+uint8 SCAN=1
+uint8 TARGET_BALL=2
+uint8 GRAB_BALL=3
+uint8 TARGET_DROPZONE=4
+uint8 DUMP_DROPZONE=5
+uint8 EXIT=6
+
+uint8 state
 
 ---
 # Response
