@@ -1,6 +1,5 @@
 from enum import Enum
 
-from geometry_msgs.msg import Twist
 from lifecycle_msgs.srv import ChangeState
 import rclpy
 from rclpy.lifecycle import (
@@ -9,7 +8,6 @@ from rclpy.lifecycle import (
     State,
     TransitionCallbackReturn,
 )
-from rclpy.publisher import Publisher
 from rclpy.timer import Timer
 from rescue_msgs.srv import SetRescueState
 from std_msgs.msg import String
@@ -40,7 +38,6 @@ class TRescue(LifecycleNode):
         self.balls_found = 0
         self.isActive = False
 
-        self.twist_pub: Publisher | None = None
         self.pub: LifecyclePublisher | None = None
         self.timer: Timer | None = None
 
@@ -67,7 +64,6 @@ class TRescue(LifecycleNode):
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Configuring rescue node')
         self.pub = self.create_lifecycle_publisher(String, 'rescue_data', 10)
-        self.twist_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.timer = self.create_timer(0.05, self.state_loop)
         return TransitionCallbackReturn.SUCCESS
 
@@ -87,12 +83,9 @@ class TRescue(LifecycleNode):
             self.destroy_timer(self.timer)
         if self.pub is not None:
             self.destroy_publisher(self.pub)
-        if self.twist_pub is not None:
-            self.destroy_publisher(self.twist_pub)
 
         self.timer = None
         self.pub = None
-        self.twist_pub = None
 
         return TransitionCallbackReturn.SUCCESS
 
@@ -110,10 +103,10 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Entering rescue zone')
                 self.state_is_active = True
 
-                # move into centre of rescue zone
-                twist = Twist()
-                twist.linear.x = 0.2
-                self.twist_pub.publish(twist)  # Theoretically makes robot move forwards
+                # # move into centre of rescue zone
+                # twist = Twist()
+                # twist.linear.x = 0.2
+                # self.twist_pub.publish(twist)  # Theoretically makes robot move forwards
                 self.current_state = States.SCAN
 
         elif self.current_state == States.SCAN:

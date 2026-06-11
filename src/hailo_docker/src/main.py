@@ -22,7 +22,7 @@ process_config_six = './src/nms_config_6_class.json'
 alls_script = (
     'normalization1 = normalization([0.0, 0.0, 0.0], [255.0, 255.0, 255.0])\n'
     'model_optimization_flavor(optimization_level=2, compression_level=1)\n'
-    f'nms_postprocess("{process_config_one}", meta_arch=yolov8, engine=hailort)\n'
+    f'nms_postprocess("{process_config_one}", meta_arch=yolov8, engine=nn_core)\n'
 )
 
 
@@ -51,9 +51,10 @@ def parse_onnx(
 
     # Translate the ONNX model. Optionally, you can supply start and end node names if needed.
     hn, params = runner.translate_onnx_model(
-        model_path=onnx_path,
+        model=onnx_path,
         net_name=net_name,
-        end_nodes_names=END_NODES,
+        # end_nodes_names=END_NODES,
+        end_node_names=['/model.22/dfl/Reshape', '/model.22/Sigmoid'],
     )
     print('Model translation to Hailo format completed.')
 
