@@ -4,6 +4,7 @@ on: [push, pull_request]
 
 jobs:
   build_and_test:
+    if: github.repository == 'Wet-Lettuce-Rescue/toby-software-rescue'
     runs-on: ubuntu-latest
     container:
       image: rostooling/setup-ros-docker:ubuntu-noble-latest
