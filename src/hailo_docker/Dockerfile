@@ -74,6 +74,7 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install -r requirements.txt
 
 USER appuser
+ENV USER=appuser
 
 # Set environment variables so the Hailo SDK can find its shared libraries and binaries
 ENV LD_LIBRARY_PATH=/opt/hailo/usr/lib

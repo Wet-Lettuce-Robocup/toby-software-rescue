@@ -23,6 +23,7 @@ alls_script = (
     'normalization1 = normalization([0.0, 0.0, 0.0], [255.0, 255.0, 255.0])\n'
     'model_optimization_flavor(optimization_level=2, compression_level=1)\n'
     f'nms_postprocess("{process_config_one}", meta_arch=yolov8, engine=nn_core)\n'
+     'performance_param(compiler_optimization_level=max)\n'
 )
 
 
@@ -39,6 +40,8 @@ def parse_onnx(
 
     # Load the ONNX model
     model = onnx.load(onnx_path)
+    # for node in model.graph.node[-30:]:
+    #     print(node.op_type, node.name)
     print([o.name for o in model.graph.output])  # Print output node names for reference
 
     # -----------------------------------------------------
@@ -53,8 +56,8 @@ def parse_onnx(
     hn, params = runner.translate_onnx_model(
         model=onnx_path,
         net_name=net_name,
-        # end_nodes_names=END_NODES,
-        end_node_names=['/model.22/dfl/Reshape', '/model.22/Sigmoid'],
+        end_node_names=END_NODES,
+        # end_node_names=['/model.22/dfl/Reshape', '/model.22/Sigmoid'],
     )
     print('Model translation to Hailo format completed.')
 
@@ -77,6 +80,10 @@ def parse_onnx(
     # convert floating-point parameters into their quantized (integer) counterparts.
     runner.optimize(calib_dataset)
     print('Model quantization complete.')
+
+    har_file_q = f'./models/{net_name}_quantised.har'
+    runner.save_har(har_file_q)
+    print(f'Raw HAR file saved to: {har_file_q}')
 
     # -----------------------------------------------------
     # Step 4. Compile the quantized model into a HAR file for deployment
@@ -126,13 +133,20 @@ def load_calibration_dataset(
     print(f'Loaded {calib_dataset.shape[0]} calibration images of size {target_size}.')
     return calib_dataset
 
+def only_compile(net_name, hw_arch, har):
+    runner = ClientRunner(hw_arch=hw_arch, har=har)
+
+    hef = runner.compile()
+    output_hef_path = f'./models/{net_name}.hef'
+    with open(output_hef_path, 'wb') as f:
+        f.write(hef)
 
 def main():
     onnx_path = './models/best.onnx'
     calib_folder = './calibration_images'
     net_name = 'robotyolov8s'
     hw_arch = 'hailo10h'
-
+    #only_compile(net_name=net_name, hw_arch=hw_arch, har='./models/robotyolov8s_quantised.har')
     parse_onnx(onnx_path, calib_folder, net_name, hw_arch)
 
 
