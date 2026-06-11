@@ -52,5 +52,6 @@ qtcreator-*
 CATKIN_IGNORE
 
 .DS_Store
+.vscode/
 
 ml_rescue/ml_training/images
