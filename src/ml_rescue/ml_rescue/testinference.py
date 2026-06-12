@@ -25,6 +25,7 @@ class PredictionClass:
         self.imgsz = 640
         self.conf_threshold = 0.25
         self.classes = ['ball']
+        self.timeout_ms = 1000
 
     def predict_image(self, image_path):
         results = self.pt_model(image_path)  # Runs inference on test image
@@ -91,7 +92,7 @@ class PredictionClass:
 
                 print('Running inference...')
                 # 3. Pass the unified bindings object into run (and include the timeout ms)
-                configured_model.run([bindings], 1000)
+                configured_model.run([bindings], self.timeout_ms)
                 print('Inference successful!')
 
         # 4. Parse HailoRT NMS flat output array from the assigned output buffer
@@ -168,6 +169,45 @@ class PredictionClass:
 
                     print(f" -> Input '{name}' Dimensions: {shape}")
                     print(f" -> Input '{name}' Expected Buffer Size: {frame_size_bytes} bytes")
+
+    def predict_hailo_async(self, source):
+        with VDevice() as target:
+            print('VDevice loaded.')
+
+            infer_model = target.create_infer_model(self.hailo_model_path)
+            print(
+                f'Model loaded: input shape {infer_model.input().shape}, output shape {infer_model.output().shape}'
+            )
+
+            input_name = infer_model.input_names[0]
+            output_name = infer_model.output_names[0]
+            print(f'Input name: {input_name}, Output name: {output_name}')
+
+            with infer_model.configure() as configured_model:
+                print('Model configured')
+
+                bindings = configured_model.create_bindings()
+
+                buffer = np.zeros(infer_model.input().shape, dtype=np.uint8)
+                bindings.input().set_buffer(buffer)
+
+                buffer = np.zeros(infer_model.output().shape, dtype=np.uint8)
+                bindings.output().set_buffer(buffer)
+
+                # Run inference synchronously initially
+                configured_model.run([bindings], self.timeout_ms)
+
+                # Holds results after inference completes, without blocking NPU
+                buffer = bindings.output().get_buffer()
+                print(f'Synchronous inference done - output shape: {buffer.shape}')
+
+                print('Starting asynchronous inference...')
+                job = configured_model.run_async([bindings])
+                job.wait(self.timeout_ms)
+
+                # Wait for the inference to complete and get results
+                job.result()  # This will block until inference is done
+                print('Inference completed! Output buffer is ready.')
 
 
 if __name__ == '__main__':
