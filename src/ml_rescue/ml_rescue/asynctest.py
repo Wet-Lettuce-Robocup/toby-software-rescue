@@ -10,9 +10,7 @@ from picamera2 import Picamera2
 
 
 class RobotRescueCam:
-    """
-    A class for testing asynchronous camera inference.
-    """
+    """A class for testing asynchronous camera inference."""
 
     def __init__(self):
         self.hailo_model = 'robotyolov8s'

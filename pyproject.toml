@@ -3,3 +3,6 @@ quote-style = "single"
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
+
+[tool.flake8]
+extend-ignore = ["E203"]

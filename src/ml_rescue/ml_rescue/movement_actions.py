@@ -3,9 +3,7 @@ from robot_msgs.action import Move
 
 
 class Movement:
-    """
-    High level movement class that handles robot driving.
-    """
+    """High level movement class that handles robot driving."""
 
     def __init__(self, node):
         # setup action clients

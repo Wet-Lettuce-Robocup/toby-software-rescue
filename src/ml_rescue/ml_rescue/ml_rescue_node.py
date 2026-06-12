@@ -4,12 +4,13 @@ from rclpy.node import Node
 
 class MLRescueNode(Node):
     """
-    _summary_
+    Main node for rescue movement logic.
 
     Parameters
     ----------
     Node : _type_
         _description_
+
     """
 
     def __init__(self):
