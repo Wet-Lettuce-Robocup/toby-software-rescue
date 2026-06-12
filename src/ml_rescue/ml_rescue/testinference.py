@@ -1,13 +1,5 @@
-from hailo_platform import (
-    HEF,
-    ConfigureParams,
-    FormatType,
-    HailoStreamInterface,
-    InferVStreams,
-    InputVStreamParams,
-    OutputVStreamParams,
-    VDevice,
-)
+from hailo_platform import VDevice
+from hailo_platform.pyhailort.pyhailort import InferModel
 import numpy as np
 from PIL import Image, ImageDraw
 import ultralytics
@@ -66,48 +58,43 @@ class PredictionClass:
         cv2.destroyAllWindows()
 
     def predict_hailo(self, source):
-        # Load the HEF file
-        hef = HEF(self.hailo_model_path)
-
-        # Create a VDevice and load the HEF
-        params = VDevice().create_params()
-        target = VDevice(params)
-
-        configure_params = ConfigureParams.create_from_hef(hef, interface=HailoStreamInterface.PCIe)
-
-        network_groups = target.configure(hef, configure_params)
-        network_group = network_groups[0]
-        network_group_params = network_group.create_params()
-
-        # Setup I/O virtual streams
-        input_vstreams_params = InputVStreamParams.make(
-            network_group, quantized=False, format_type=FormatType.FLOAT32
-        )
-        output_vstreams_params = OutputVStreamParams.make(
-            network_group, quantized=False, format_type=FormatType.FLOAT32
-        )
-
-        # Preprocess
+        # 1. Preprocess image BEFORE entering the hardware context
         orig = Image.open(source).convert('RGB')
         ow, oh = orig.size
         resized = orig.resize((self.imgsz, self.imgsz))
-        input_data = np.expand_dims(np.array(resized, dtype=np.float32), axis=0)  # (1,640,640,3)
-        input_name = hef.get_input_vstream_infos()[0].name
 
-        # Inference
-        with (
-            InferVStreams(network_group, input_vstreams_params, output_vstreams_params) as pipeline,
-            network_group.activate(network_group_params),
-        ):
-            pipeline.send({input_name: input_data})
-            raw = pipeline.recv()
+        # Hailo-10H InferModel expects raw uint8 (640, 640, 3), NOT float32, NO batch dimension
+        input_data = np.array(resized, dtype=np.uint8)
 
-        # Parse HailoRT NMS output and draw results
-        # When compiled with nms_postprocess the HEF outputs detections grouped by
-        # class: shape (batch, num_classes, max_dets, 5) where 5 = [y1,x1,y2,x2,score]
+        # 2. Open the modern Hailo-10H VDevice pipeline
+        print('Initializing Hailo-10H VDevice...')
+        with VDevice() as target:
+            print('Loading model via the InferModel API...')
+            infer_model = target.create_infer_model(self.hailo_model_path)
+
+            # Fetch the precise model layer names
+            input_name = infer_model.input_names[0]
+            output_name = infer_model.output_names[0]
+
+            # 3. Configure the chip and run inference
+            with infer_model.configure() as configured_model:
+                print('Running inference...')
+
+                # Bind our uint8 input frame
+                bindings = {
+                    input_name: input_data,
+                    output_name: None,  # Automatically handles output allocation
+                }
+
+                # Execute inference
+                raw_outputs = configured_model.infer(bindings)
+                print('Inference successful!')
+
+        # 4. Parse HailoRT NMS output and draw results
         draw = ImageDraw.Draw(orig)
-        output_key = next(iter(raw.keys()))
-        batch_dets = raw[output_key][0]  # shape: (num_classes, max_dets, 5)
+
+        # Extract the raw matrix for the batch frame
+        batch_dets = raw_outputs[output_name][0]  # shape: (num_classes, max_dets, 5)
 
         for cls_idx, cls_dets in enumerate(batch_dets):
             for det in cls_dets:
@@ -115,17 +102,49 @@ class PredictionClass:
                 if score < self.conf_threshold:
                     continue
                 y1, x1, y2, x2 = det[:4]
+
                 # Scale from model coords (0-640) back to original image size
                 x1 = int(x1 * ow / self.imgsz)
                 y1 = int(y1 * oh / self.imgsz)
                 x2 = int(x2 * ow / self.imgsz)
                 y2 = int(y2 * oh / self.imgsz)
+
                 label = f'{self.classes[cls_idx]} {score:.2f}'
                 draw.rectangle([x1, y1, x2, y2], outline='red', width=2)
                 draw.text((x1 + 2, y1 + 2), label, fill='red')
 
         orig.save('output.jpg')
-        print('Saved output.jpg')
+        print('Saved output.jpg successfully!')
+
+    def test_hailo(self):
+
+        hef_path = 'config/robotyolov8s.hef'
+
+        print('Initializing Hailo-10H VDevice...')
+        with VDevice() as target:
+            print('Loading model via the InferModel API...')
+            infer_model = target.create_infer_model(hef_path)
+
+            input_names = infer_model.input_names
+            output_names = infer_model.output_names
+
+            with infer_model.configure() as configured_model:
+                print('Success! The Hailo-10H accepted the model using InferModel.')
+
+                print('\nModel Bindings:')
+                print(f'Inputs:  {input_names}')
+                print(f'Outputs: {output_names}')
+
+                # 1. Use .shape property to look inside the stream
+                for name in input_names:
+                    input_stream = infer_model.input(name)
+                    shape = input_stream.shape  # Returns something like (640, 640, 3)
+
+                    # 2. Calculate the exact frame size in bytes (Width * Height * Channels)
+                    frame_size_bytes = np.prod(shape)
+
+                    print(f" -> Input '{name}' Dimensions: {shape}")
+                    print(f" -> Input '{name}' Expected Buffer Size: {frame_size_bytes} bytes")
 
 
 if __name__ == '__main__':
