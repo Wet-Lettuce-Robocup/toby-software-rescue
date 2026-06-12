@@ -50,7 +50,7 @@ class PredictionClass:
 
         for i in range(frames):
             frame = self.picam2.capture_array()
-            results = self.model(frame)  # Runs inference on video frame
+            results = self.pt_model(frame)  # Runs inference on video frame
             annotated_image = results[0].plot()  # Displays model-annotated video frame
             cv2.imshow('YOLO', annotated_image)
             cv2.waitKey(1)
@@ -63,8 +63,8 @@ class PredictionClass:
         ow, oh = orig.size
         resized = orig.resize((self.imgsz, self.imgsz))
 
-        # Hailo-10H InferModel expects raw uint8 (640, 640, 3), NOT float32, NO batch dimension
-        input_data = np.array(resized, dtype=np.uint8)
+        # Hailo-10H InferModel expects contiguous raw uint8 (640, 640, 3), NOT float32, NO batch dimension
+        input_data = np.ascontiguousarray(np.array(resized, dtype=np.uint8))
 
         # 2. Open the modern Hailo-10H VDevice pipeline
         print('Initializing Hailo-10H VDevice...')
@@ -78,23 +78,27 @@ class PredictionClass:
 
             # 3. Configure the chip and run inference
             with infer_model.configure() as configured_model:
+                print('Creating bindings...')
+                bindings = (
+                    configured_model.create_bindings()
+                )  # Pre-allocates buffers based on model input/output shapes
+
+                bindings.input(input_name).set_buffer(input_data)  # Binds uint8 input frame
+
+                output_shape = infer_model.output(output_name).shape
+                output_buffer = np.empty(output_shape, dtype=np.float32)
+                bindings.output(output_name).set_buffer(output_buffer)
+
                 print('Running inference...')
-
-                # Bind our uint8 input frame
-                bindings = {
-                    input_name: input_data,
-                    output_name: None,  # Automatically handles output allocation
-                }
-
-                # Execute inference
-                raw_outputs = configured_model.infer(bindings)
+                # 3. Pass the unified bindings object into run (and include the timeout ms)
+                configured_model.run([bindings], 1000)
                 print('Inference successful!')
 
         # 4. Parse HailoRT NMS output and draw results
         draw = ImageDraw.Draw(orig)
 
         # Extract the raw matrix for the batch frame
-        batch_dets = raw_outputs[output_name][0]  # shape: (num_classes, max_dets, 5)
+        batch_dets = output_buffer[0]  # shape: (num_classes, max_dets, 5)
 
         for cls_idx, cls_dets in enumerate(batch_dets):
             for det in cls_dets:
