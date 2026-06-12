@@ -59,25 +59,22 @@ class PredictionClass:
         cv2.destroyAllWindows()
 
     def predict_hailo(self, source):
-        # 1. Preprocess image BEFORE entering the hardware context
+
         orig = Image.open(source).convert('RGB')
         ow, oh = orig.size
         resized = orig.resize((self.imgsz, self.imgsz))
 
-        # Hailo-10H InferModel expects contiguous raw uint8 (640, 640, 3), NOT float32, NO batch dimension
         input_data = np.ascontiguousarray(np.array(resized, dtype=np.uint8))
 
-        # 2. Open the modern Hailo-10H VDevice pipeline
-        print('Initializing Hailo-10H VDevice...')
+        print('Initialising Hailo-10H VDevice...')
         with VDevice() as target:
-            print('Loading model via the InferModel API...')
+            print('Loading model...')
             infer_model = target.create_infer_model(self.hailo_model_path)
 
-            # Fetch the precise model layer names
             input_name = infer_model.input_names[0]
             output_name = infer_model.output_names[0]
 
-            # 3. Configure the chip and run inference
+            # Configure the chip and run inference
             with infer_model.configure() as configured_model:
                 print('Creating bindings...')
                 bindings = (
@@ -91,11 +88,10 @@ class PredictionClass:
                 bindings.output(output_name).set_buffer(output_buffer)
 
                 print('Running inference...')
-                # 3. Pass the unified bindings object into run (and include the timeout ms)
                 configured_model.run([bindings], self.timeout_ms)
                 print('Inference successful!')
 
-        # 4. Parse HailoRT NMS flat output array from the assigned output buffer
+        # Parses HailoRT NMS flat output array from the assigned output buffer
         draw = ImageDraw.Draw(orig)
 
         # Extract how many valid detections were found (Index 0)
@@ -119,13 +115,13 @@ class PredictionClass:
                 print(f'Score {score} is below threshold {self.conf_threshold}')
                 continue
 
-            # FIX: Multiply fractions directly by the original image dimensions
+            # Multiply fractions directly by the original image dimensions
             x1_scaled = int(x1 * ow)
             y1_scaled = int(y1 * oh)
             x2_scaled = int(x2 * ow)
             y2_scaled = int(y2 * oh)
 
-            # Bound boxes to keep them inside image borders (0.0 to 1.0 can sometimes slightly overshoot)
+            # Bound boxes to keep them inside image borders
             x1_scaled = max(0, min(ow, x1_scaled))
             y1_scaled = max(0, min(oh, y1_scaled))
             x2_scaled = max(0, min(ow, x2_scaled))
@@ -144,33 +140,33 @@ class PredictionClass:
 
         hef_path = 'config/robotyolov8s.hef'
 
-        print('Initializing Hailo-10H VDevice...')
+        print('Initialising...')
+
         with VDevice() as target:
-            print('Loading model via the InferModel API...')
+            print('Loading model...')
             infer_model = target.create_infer_model(hef_path)
 
             input_names = infer_model.input_names
             output_names = infer_model.output_names
 
             with infer_model.configure() as configured_model:
-                print('Success! The Hailo-10H accepted the model using InferModel.')
+                print('Success!')
 
                 print('\nModel Bindings:')
                 print(f'Inputs:  {input_names}')
                 print(f'Outputs: {output_names}')
 
-                # 1. Use .shape property to look inside the stream
                 for name in input_names:
                     input_stream = infer_model.input(name)
-                    shape = input_stream.shape  # Returns something like (640, 640, 3)
+                    shape = input_stream.shape
 
-                    # 2. Calculate the exact frame size in bytes (Width * Height * Channels)
+                    # Calculate the exact frame size in bytes (Width * Height * Channels)
                     frame_size_bytes = np.prod(shape)
 
                     print(f" -> Input '{name}' Dimensions: {shape}")
                     print(f" -> Input '{name}' Expected Buffer Size: {frame_size_bytes} bytes")
 
-    def predict_hailo_async(self, source):
+    def predict_hailo_async(self):
         with VDevice() as target:
             print('VDevice loaded.')
 
