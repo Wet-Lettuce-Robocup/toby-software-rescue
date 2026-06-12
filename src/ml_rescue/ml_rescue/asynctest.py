@@ -31,7 +31,11 @@ class RobotRescueCam:
 
         for i in range(num_detections):
             start_idx = 1 + (i * 5)
-            y1, x1, y2, x2, score = output_buffer[start_idx : start_idx + 5]
+            y1 = output_buffer[start_idx]
+            x1 = output_buffer[start_idx + 1]
+            y2 = output_buffer[start_idx + 2]
+            x2 = output_buffer[start_idx + 3]
+            score = output_buffer[start_idx + 4]
 
             if score >= self.conf_threshold:
                 detections.append({'box': [y1, x1, y2, x2], 'score': score})
