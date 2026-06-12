@@ -4,13 +4,16 @@ import time
 
 import cv2
 from hailo_platform import VDevice
-from hailo_platform.pyhailort.pyhailort import InferModel
 from libcamera import Transform
 import numpy as np
 from picamera2 import Picamera2
 
 
 class RobotRescueCam:
+    """
+    A class for testing asynchronous camera inference.
+    """
+
     def __init__(self):
         self.hailo_model = 'robotyolov8s'
         self.hailo_model_path = f'config/{self.hailo_model}.hef'
@@ -23,8 +26,7 @@ class RobotRescueCam:
         self.results_queue = queue.Queue(maxsize=2)
 
     def _inference_callback(self, completion_info, output_buffer=None, display_frame=None):
-        """Runs in the background the exact millisecond the NPU finishes a frame"""
-
+        """Will be run in the background the exact millisecond the NPU finishes a frame."""
         flat_buffer = output_buffer.flatten()
         num_detections = int(flat_buffer[0])
         detections = []
@@ -36,6 +38,7 @@ class RobotRescueCam:
             if score >= self.conf_threshold:
                 detections.append({'box': [y1, x1, y2, x2], 'score': score})
 
+        print(completion_info)
         # Push both the frame and its matching detections to the main thread
         if not self.results_queue.full():
             self.results_queue.put_nowait((display_frame, detections))
@@ -94,6 +97,7 @@ class RobotRescueCam:
                             display_frame=raw_frame.copy(),
                         )
                         job = configured_model.run_async([bindings], bound_callback)
+                        print(job)
 
                         # Pull finished frames from the queue and render them
                         try:

@@ -1,5 +1,4 @@
 from hailo_platform import VDevice
-from hailo_platform.pyhailort.pyhailort import InferModel
 import numpy as np
 from PIL import Image, ImageDraw
 import ultralytics
@@ -17,11 +16,11 @@ class PredictionClass:
     """
 
     def __init__(self):
-        self.pt_model = YOLO('config/best.pt')  # Loads custom model from training
+        self.pt_model = YOLO('config/best.pt')
         self.picam2 = None  # Placeholder
 
         self.hailo_model = 'robotyolov8s'
-        self.hailo_model_path = f'config/{self.hailo_model}.hef'  # Loads custom model from training
+        self.hailo_model_path = f'config/{self.hailo_model}.hef'
         self.imgsz = 640
         self.conf_threshold = 0.25
         self.classes = ['ball']
@@ -150,6 +149,7 @@ class PredictionClass:
             output_names = infer_model.output_names
 
             with infer_model.configure() as configured_model:
+                print(configured_model.__doc__)  # Idk man
                 print('Success!')
 
                 print('\nModel Bindings:')
@@ -172,7 +172,8 @@ class PredictionClass:
 
             infer_model = target.create_infer_model(self.hailo_model_path)
             print(
-                f'Model loaded: input shape {infer_model.input().shape}, output shape {infer_model.output().shape}'
+                f'Model loaded: input shape {infer_model.input().shape}, '
+                f'output shape {infer_model.output().shape}'
             )
 
             input_name = infer_model.input_names[0]

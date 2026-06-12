@@ -1,8 +1,12 @@
-from robot_msgs.action import Move
 from rclpy.action import ActionClient
+from robot_msgs.action import Move
 
 
 class Movement:
+    """
+    High level movement class that handles robot driving.
+    """
+
     def __init__(self, node):
         # setup action clients
         self.move_client = ActionClient(node, Move, 'move')
