@@ -94,28 +94,47 @@ class PredictionClass:
                 configured_model.run([bindings], 1000)
                 print('Inference successful!')
 
-        # 4. Parse HailoRT NMS output and draw results
+        # 4. Parse HailoRT NMS flat output array from the assigned output buffer
         draw = ImageDraw.Draw(orig)
 
-        # Extract the raw matrix for the batch frame
-        batch_dets = output_buffer[0]  # shape: (num_classes, max_dets, 5)
+        # Extract how many valid detections were found (Index 0)
+        num_detections = int(output_buffer[0])
+        print(f'Parsing detections. Valid objects found: {num_detections}')
 
-        for cls_idx, cls_dets in enumerate(batch_dets):
-            for det in cls_dets:
-                score = float(det[4])
-                if score < self.conf_threshold:
-                    continue
-                y1, x1, y2, x2 = det[:4]
+        # Loop through only the valid boxes using 5-step strides
+        for i in range(num_detections):
+            start_idx = 1 + (i * 5)
 
-                # Scale from model coords (0-640) back to original image size
-                x1 = int(x1 * ow / self.imgsz)
-                y1 = int(y1 * oh / self.imgsz)
-                x2 = int(x2 * ow / self.imgsz)
-                y2 = int(y2 * oh / self.imgsz)
+            y1 = output_buffer[start_idx]
+            x1 = output_buffer[start_idx + 1]
+            y2 = output_buffer[start_idx + 2]
+            x2 = output_buffer[start_idx + 3]
+            score = output_buffer[start_idx + 4]
 
-                label = f'{self.classes[cls_idx]} {score:.2f}'
-                draw.rectangle([x1, y1, x2, y2], outline='red', width=2)
-                draw.text((x1 + 2, y1 + 2), label, fill='red')
+            print(f'Raw coords: {y1, x1, y2, x2}')
+            print(f'Score: {score}')
+
+            if score < self.conf_threshold:
+                print(f'Score {score} is below threshold {self.conf_threshold}')
+                continue
+
+            # FIX: Multiply fractions directly by the original image dimensions
+            x1_scaled = int(x1 * ow)
+            y1_scaled = int(y1 * oh)
+            x2_scaled = int(x2 * ow)
+            y2_scaled = int(y2 * oh)
+
+            # Bound boxes to keep them inside image borders (0.0 to 1.0 can sometimes slightly overshoot)
+            x1_scaled = max(0, min(ow, x1_scaled))
+            y1_scaled = max(0, min(oh, y1_scaled))
+            x2_scaled = max(0, min(ow, x2_scaled))
+            y2_scaled = max(0, min(oh, y2_scaled))
+
+            label = f'{self.classes[0]} {score:.2f}'
+
+            # Draw the bounding box onto the image
+            draw.rectangle([x1_scaled, y1_scaled, x2_scaled, y2_scaled], outline='red', width=3)
+            draw.text((x1_scaled + 5, y1_scaled + 5), label, fill='red')
 
         orig.save('output.jpg')
         print('Saved output.jpg successfully!')
