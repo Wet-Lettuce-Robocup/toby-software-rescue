@@ -34,7 +34,7 @@ class Movement:
 
         self.get_logger().info('Movement Goal accepted')
 
-        self.get_result_future = goal_handle.get_result_async()  #
+        self.get_result_future = goal_handle.get_result_async()
         self.get_result_future.add_done_callback(self.get_result_callback)
 
     def result_callback(self, future):

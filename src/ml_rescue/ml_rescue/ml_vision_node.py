@@ -1,6 +1,10 @@
+from functools import partial
+import queue
+import time
+
 import cv2
 from cv_bridge import CvBridge
-from hailort import HEF
+from hailo_platform import VDevice
 import numpy as np
 import rclpy
 from rclpy.node import Node
@@ -19,74 +23,166 @@ class VisionNode(Node):
         super().__init__('vision_node')
 
         self.declare_parameter('raw_image_topic', '/front_camera/image_raw')
+        self.declare_parameter('ml_rescue_debug', False)
+
+        self.debug = self.get_parameter('ml_rescue_debug').value
 
         self.camera_sub = self.create_subscription(
             Image,
-            self.get_parameter('raw_image_topic').get_parameter_value().string_value,
+            self.get_parameter('raw_image_topic').value,
             self.image_callback,
             10,
         )
 
         self.test_image_sub = self.create_subscription(
             Image,
-            '/test_image',
-            self.display_callback,
+            '/ml_rescue/test_image',
+            self.test_display_callback,
             10,
         )
 
-        self.pub = self.create_publisher(Detection2DArray, '/detections', 10)
+        self.inference_pub = self.create_publisher(
+            Detection2DArray, '/ml_rescue/inference_stream', 10
+        )
 
         self.bridge = CvBridge()
 
-        self.frame = None
-        self.hef_path = 'config/model.hef'  # Path to Hailo model file
-        self.hailo = HEF('model.hef')
+        self.hailo = 'robotyollov8s'  # Model name
+        self.hef_path = f'config/{self.hailo}.hef'  # Path to Hailo model file
+        self.imgsz = 640
+        self.conf = 0.8
+        self.model_classes = ['ball']
+
+        self.results_queue = queue.Queue(maxsize=2)
 
     def image_callback(self, msg):
+
         # Convert ROS Image message to OpenCV image
-        try:
-            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            self.frame = cv_image
+        cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        self.frame = cv_image
 
-            input_tensor = self.preprocess(cv_image)
-            detections = self.hailo_infer(input_tensor)
-            detection_msg = Detection2DArray()
-            for det in detections:
-                detection = Detection2D()
-                detection.bbox.center.position.x = det.cx
-                detection.bbox.center.position.y = det.cy
+    def run_inference(self):
 
-                detection.bbox.size_x = det.w
-                detection.bbox.size_y = det.h
+        dw = 1536
+        dh = 864
 
-                detection.results[0].score = det.confidence
+        with VDevice() as target:
+            infer_model = target.create_infer_model(self.hef_path)
+            input_name = infer_model.input_names[0]
+            output_name = infer_model.output_names[0]
+            output_shape = infer_model.output(output_name).shape
 
-                detection_msg.detections.append(detection)
+            with infer_model.configure() as configured_model:
+                while True:  # Change to be based on rescue state srv
+                    raw_frame = self.image
+                    resized_frame = cv2.resize(raw_frame, (self.imgsz, self.imgsz))
+                    input_data = np.ascontiguousarray(resized_frame)
 
-            self.pub.publish(detection_msg)
+                    bindings = configured_model.create_bindings()
+                    bindings.input(input_name).set_buffer(input_data)
 
-            # self.get_logger().info('Received image')
-            cv2.imshow('Camera View', cv_image)
-            cv2.waitKey(1)
-        except Exception as e:
-            self.get_logger().error(f'Error processing image: {e}')
-            raise
+                    output_buffer = np.zeros(output_shape, dtype=np.float32)
+                    bindings.output(output_name).set_buffer(output_buffer)
 
-    def preprocess(self, image):
-        image = cv2.resize(image, (640, 640))
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image = image.astype(np.float32) / 255.0
-        image = np.expand_dims(image, axis=0)
+                    bound_callback = partial(
+                        self._inference_callback,
+                        output_buffer=output_buffer,
+                        display_frame=raw_frame.copy(),
+                    )
 
-        return image
+                    job = configured_model.run_async([bindings], bound_callback)
+                    print(job)
 
-    def hailo_infer(self, input_tensor):
-        outputs = self.hailo.run(input_tensor)
-        detections = self.postprocess(outputs)
+                    try:
+                        vis_frame, latest_balls = self.results_queue.get_nowait()
 
-        return detections
+                        detection_msg = Detection2DArray()
 
-    def display_callback(self, msg):
+                        for ball in latest_balls:
+                            y1, x1, y2, x2 = ball['box']
+                            score = ball['score']
+
+                            # Scale values back to original frame size
+                            px1 = int(x1 * dw)
+                            py1 = int(y1 * dh)
+                            px2 = int(x2 * dw)
+                            py2 = int(y2 * dh)
+
+                            # Clamp boxes inside your image frames
+                            px1, px2 = max(0, min(dw, px1)), max(0, min(dw, px2))
+                            py1, py2 = max(0, min(dh, py1)), max(0, min(dh, py2))
+
+                            pxc = (px1 + px2) / 2
+                            pyc = (py1 + py2) / 2
+
+                            detection = Detection2D()
+                            detection.bbox.center.position.x = pxc
+                            detection.bbox.center.position.y = pyc
+
+                            detection.bbox.size_x = px2 - px1
+                            detection.bbox.size_y = py2 - py1
+
+                            detection.results[0].score = score
+
+                            detection_msg.detections.append(
+                                detection
+                            )  # To be sent to ml_rescue_node
+
+                            if self.debug:
+                                cv2.rectangle(vis_frame, (px1, py1), (px2, py2), (0, 0, 255), 2)
+                                cv2.circle(vis_frame, (pxc, pyc), 2, (0, 0, 255), -1)
+                                self.get_logger().info(
+                                    f'Object detected at ({pxc},{pyc}) with confidence {score}'
+                                )
+
+                                label = f'{self.classes[0]} {score:.2f}'  # Add text label with confidence score
+                                cv2.putText(
+                                    vis_frame,
+                                    label,
+                                    (px1, max(20, py1 - 5)),
+                                    cv2.FONT_HERSHEY_SIMPLEX,
+                                    0.5,
+                                    (0, 0, 255),
+                                    2,
+                                )
+
+                        # Show the rendered frame on the screen
+                        if self.debug:
+                            cv2.imshow('Object detection', vis_frame)
+                            # Break out of loop immediately if 'q' is pressed in the windows
+                            if cv2.waitKey(1) & 0xFF == ord('q'):
+                                break
+
+                    except queue.Empty:
+                        pass
+
+                    self.inference_pub.publish(detection_msg)
+                    time.sleep(0.01)
+
+    def _inference_callback(self, completion_info, output_buffer=None, display_frame=None):
+
+        flat_buffer = output_buffer.flatten()
+        num_detections = int(flat_buffer[0])
+        detections = []
+
+        for i in range(num_detections):
+            start_idx = 1 + (i * 5)
+            y1 = output_buffer[start_idx]
+            x1 = output_buffer[start_idx + 1]
+            y2 = output_buffer[start_idx + 2]
+            x2 = output_buffer[start_idx + 3]
+            score = output_buffer[start_idx + 4]
+
+            if score >= self.conf_threshold:
+                detections.append({'box': [y1, x1, y2, x2], 'score': score})
+
+        print(completion_info)
+
+        # Push both the frame and its matching detections to the main thread
+        if not self.results_queue.full():
+            self.results_queue.put_nowait((display_frame, detections))
+
+    def test_display_callback(self, msg):
         try:
             cv2.imshow('Test Image', self.frame)
             cv2.waitKey(1)
