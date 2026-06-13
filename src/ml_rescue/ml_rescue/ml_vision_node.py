@@ -9,6 +9,7 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
+from std_msgs.msg import Bool
 from vision_msgs.msg import Detection2D, Detection2DArray
 
 
@@ -33,17 +34,19 @@ class VisionNode(Node):
             self.image_callback,
             10,
         )
-
         self.test_image_sub = self.create_subscription(
             Image,
             '/ml_rescue/test_image',
             self.test_display_callback,
             10,
         )
-
         self.inference_pub = self.create_publisher(
             Detection2DArray, '/ml_rescue/inference_stream', 10
         )
+        self.rescue_active_sub = self.create_subscription(
+            Bool, '/rescue_active', self.rescue_active_callback, 10
+        )
+        self.isActive = False
 
         self.bridge = CvBridge()
 
@@ -55,6 +58,21 @@ class VisionNode(Node):
 
         self.results_queue = queue.Queue(maxsize=2)
 
+        self.timer = self.create_timer(0.05, self.run_inference)
+
+        self.target = VDevice()
+        self.infer_model = self.target.create_infer_model(self.hef_path)
+        self.input_name = self.infer_model.input_names[0]
+        self.output_name = self.infer_model.output_names[0]
+        self.output_shape = self.infer_model.output(self.output_name).shape
+        self.configured_model = self.infer_model.configure()
+
+        self.dw = 1536
+        self.dh = 864
+
+    def rescue_active_callback(self, msg: Bool) -> None:
+        self.isActive = msg.data
+
     def image_callback(self, msg):
 
         # Convert ROS Image message to OpenCV image
@@ -63,101 +81,92 @@ class VisionNode(Node):
 
     def run_inference(self):
 
-        dw = 1536
-        dh = 864
+        if self.isActive:  # Change to be based on rescue state srv
+            raw_frame = self.image
+            resized_frame = cv2.resize(raw_frame, (self.imgsz, self.imgsz))
+            input_data = np.ascontiguousarray(resized_frame)
 
-        with VDevice() as target:
-            infer_model = target.create_infer_model(self.hef_path)
-            input_name = infer_model.input_names[0]
-            output_name = infer_model.output_names[0]
-            output_shape = infer_model.output(output_name).shape
+            bindings = self.configured_model.create_bindings()
+            bindings.input(self.input_name).set_buffer(input_data)
 
-            with infer_model.configure() as configured_model:
-                while True:  # Change to be based on rescue state srv
-                    raw_frame = self.image
-                    resized_frame = cv2.resize(raw_frame, (self.imgsz, self.imgsz))
-                    input_data = np.ascontiguousarray(resized_frame)
+            output_buffer = np.zeros(self.output_shape, dtype=np.float32)
+            bindings.output(self.output_name).set_buffer(output_buffer)
 
-                    bindings = configured_model.create_bindings()
-                    bindings.input(input_name).set_buffer(input_data)
+            bound_callback = partial(
+                self._inference_callback,
+                output_buffer=output_buffer,
+                display_frame=raw_frame.copy(),
+            )
 
-                    output_buffer = np.zeros(output_shape, dtype=np.float32)
-                    bindings.output(output_name).set_buffer(output_buffer)
+            job = self.configured_model.run_async([bindings], bound_callback)
+            print(job)
 
-                    bound_callback = partial(
-                        self._inference_callback,
-                        output_buffer=output_buffer,
-                        display_frame=raw_frame.copy(),
-                    )
+            try:
+                vis_frame, latest_balls = self.results_queue.get_nowait()
 
-                    job = configured_model.run_async([bindings], bound_callback)
-                    print(job)
+                detection_msg = Detection2DArray()
 
-                    try:
-                        vis_frame, latest_balls = self.results_queue.get_nowait()
+                for ball in latest_balls:
+                    y1, x1, y2, x2 = ball['box']
+                    score = ball['score']
 
-                        detection_msg = Detection2DArray()
+                    # Scale values back to original frame size
+                    px1 = int(x1 * self.dw)
+                    py1 = int(y1 * self.dh)
+                    px2 = int(x2 * self.dw)
+                    py2 = int(y2 * self.dh)
 
-                        for ball in latest_balls:
-                            y1, x1, y2, x2 = ball['box']
-                            score = ball['score']
+                    # Clamp boxes inside your image frames
+                    px1, px2 = max(0, min(self.dw, px1)), max(0, min(self.dw, px2))
+                    py1, py2 = max(0, min(self.dh, py1)), max(0, min(self.dh, py2))
 
-                            # Scale values back to original frame size
-                            px1 = int(x1 * dw)
-                            py1 = int(y1 * dh)
-                            px2 = int(x2 * dw)
-                            py2 = int(y2 * dh)
+                    pxc = (px1 + px2) / 2
+                    pyc = (py1 + py2) / 2
 
-                            # Clamp boxes inside your image frames
-                            px1, px2 = max(0, min(dw, px1)), max(0, min(dw, px2))
-                            py1, py2 = max(0, min(dh, py1)), max(0, min(dh, py2))
+                    detection = Detection2D()
+                    detection.bbox.center.position.x = pxc
+                    detection.bbox.center.position.y = pyc
 
-                            pxc = (px1 + px2) / 2
-                            pyc = (py1 + py2) / 2
+                    detection.bbox.size_x = px2 - px1
+                    detection.bbox.size_y = py2 - py1
 
-                            detection = Detection2D()
-                            detection.bbox.center.position.x = pxc
-                            detection.bbox.center.position.y = pyc
+                    detection.results[0].score = score
 
-                            detection.bbox.size_x = px2 - px1
-                            detection.bbox.size_y = py2 - py1
+                    detection_msg.detections.append(detection)  # To be sent to ml_rescue_node
 
-                            detection.results[0].score = score
+                    if self.debug:
+                        cv2.rectangle(vis_frame, (px1, py1), (px2, py2), (0, 0, 255), 2)
+                        cv2.circle(vis_frame, (pxc, pyc), 2, (0, 0, 255), -1)
+                        self.get_logger().info(
+                            f'Object detected at ({pxc},{pyc}) with confidence {score}'
+                        )
 
-                            detection_msg.detections.append(
-                                detection
-                            )  # To be sent to ml_rescue_node
+                        label = (
+                            f'{self.classes[0]} {score:.2f}'  # Add text label with confidence score
+                        )
+                        cv2.putText(
+                            vis_frame,
+                            label,
+                            (px1, max(20, py1 - 5)),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5,
+                            (0, 0, 255),
+                            2,
+                        )
 
-                            if self.debug:
-                                cv2.rectangle(vis_frame, (px1, py1), (px2, py2), (0, 0, 255), 2)
-                                cv2.circle(vis_frame, (pxc, pyc), 2, (0, 0, 255), -1)
-                                self.get_logger().info(
-                                    f'Object detected at ({pxc},{pyc}) with confidence {score}'
-                                )
+                # Show the rendered frame on the screen
+                if self.debug:
+                    cv2.imshow('Object detection', vis_frame)
+                    # Break out of loop immediately if 'q' is pressed in the windows
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        self.isActive = False
+                        return
 
-                                label = f'{self.classes[0]} {score:.2f}'  # Add text label with confidence score
-                                cv2.putText(
-                                    vis_frame,
-                                    label,
-                                    (px1, max(20, py1 - 5)),
-                                    cv2.FONT_HERSHEY_SIMPLEX,
-                                    0.5,
-                                    (0, 0, 255),
-                                    2,
-                                )
+            except queue.Empty:
+                pass
 
-                        # Show the rendered frame on the screen
-                        if self.debug:
-                            cv2.imshow('Object detection', vis_frame)
-                            # Break out of loop immediately if 'q' is pressed in the windows
-                            if cv2.waitKey(1) & 0xFF == ord('q'):
-                                break
-
-                    except queue.Empty:
-                        pass
-
-                    self.inference_pub.publish(detection_msg)
-                    time.sleep(0.01)
+            self.inference_pub.publish(detection_msg)
+            time.sleep(0.01)
 
     def _inference_callback(self, completion_info, output_buffer=None, display_frame=None):
 
