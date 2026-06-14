@@ -70,7 +70,7 @@ class VisionNode(Node):
         self.dh = 864
 
         self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        self.out = cv2.VideoWriter('output_video.mp4', self.fourcc, 24, (self.dw, self.dh))
+        self.out = cv2.VideoWriter('/videos/output_video.mp4', self.fourcc, 24, (self.dw, self.dh))
 
     def rescue_active_callback(self, msg: Bool) -> None:
         self.isActive = msg.data
