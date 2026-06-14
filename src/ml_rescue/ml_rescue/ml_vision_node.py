@@ -1,6 +1,5 @@
 from functools import partial
 import queue
-import time
 
 import cv2
 from cv_bridge import CvBridge
@@ -69,6 +68,9 @@ class VisionNode(Node):
 
         self.dw = 1536
         self.dh = 864
+
+        self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        self.out = cv2.VideoWriter('output_video.mp4', self.fourcc, 24, (self.dw, self.dh))
 
     def rescue_active_callback(self, msg: Bool) -> None:
         self.isActive = msg.data
@@ -156,17 +158,12 @@ class VisionNode(Node):
 
                 # Show the rendered frame on the screen
                 if self.debug:
-                    cv2.imshow('Object detection', vis_frame)
-                    # Break out of loop immediately if 'q' is pressed in the windows
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
-                        self.isActive = False
-                        return
+                    self.out.write(vis_frame)
 
             except queue.Empty:
                 pass
 
             self.inference_pub.publish(detection_msg)
-            time.sleep(0.01)
 
     def _inference_callback(self, completion_info, output_buffer=None, display_frame=None):
 
@@ -193,8 +190,7 @@ class VisionNode(Node):
 
     def test_display_callback(self, msg):
         try:
-            cv2.imshow('Test Image', self.frame)
-            cv2.waitKey(1)
+            self.out.write()
             self.get_logger().info(f'Displayed test image: {msg}')
         except Exception as e:
             self.get_logger().error(f'Error displaying test image: {e}')
@@ -207,7 +203,7 @@ def main(args=None):
     rclpy.spin(vision_node)
     vision_node.destroy_node()
     rclpy.shutdown()
-    cv2.destroyAllWindows()
+    vision_node.out.release()
 
 
 if __name__ == '__main__':
