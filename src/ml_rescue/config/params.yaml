@@ -1,0 +1,3 @@
+ml_vision_node:
+  ros__parameters:
+    debug: True

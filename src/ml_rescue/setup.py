@@ -32,7 +32,7 @@ setup(
             'testpub = ml_rescue.testpub:main',
             'testsub = ml_rescue.testsub:main',
             'state_machine = ml_rescue.state_machine:main',
-            'test_camera = ml_rescue.ml_vision_node:main',
+            'ml_rescue_node = ml_rescue.ml_vision_node:main',
             'ml_rescue_node = ml_rescue.ml_rescue_node:main',
         ],
     },
