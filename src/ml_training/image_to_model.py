@@ -2,8 +2,8 @@ import os
 import time
 
 import cv2
-from libcamera import Transform
 from picamera2 import Picamera2
+from picamera2.utils import Transform
 
 os.makedirs('raw_images', exist_ok=True)
 picam2 = Picamera2()
@@ -12,7 +12,7 @@ picam2.configure(
         sensor={'output_size': (2304, 1296)},  # 16:9 aspect ratio
         main={'format': 'RGB888', 'size': (1536, 864)},  # Lower resolution for better performance
         controls={'FrameRate': 10},
-        transform=Transform(hflip=1, vflip=1),  # 180 degree rotation
+        transform=Transform(hflip=True, vflip=True),  # 180 degree rotation
     )
 )
 picam2.set_controls({'AfMode': 2})
