@@ -143,9 +143,7 @@ class VisionNode(Node):
                             f'Object detected at ({pxc},{pyc}) with confidence {score}'
                         )
 
-                        label = (
-                            f'{self.classes[0]} {score:.2f}'  # Add text label with confidence score
-                        )
+                        label = f'{self.classes[0]} {score:.2f}'  # Label with confidence score
                         cv2.putText(
                             vis_frame,
                             label,
