@@ -1,6 +1,8 @@
 from functools import partial
+import os
 import queue
 
+from ament_index_python.packages import get_package_share_directory
 import cv2
 from cv_bridge import CvBridge
 from hailo_platform import VDevice
@@ -50,6 +52,9 @@ class VisionNode(Node):
         self.bridge = CvBridge()
 
         self.hailo = 'robotyolov8s'  # Model name
+        self.hef_path = os.path.join(
+            get_package_share_directory('ml_rescue'), 'modelhef', f'{self.hailo}.hef'
+        )
         self.hef_path = f'config/{self.hailo}.hef'  # Path to Hailo model file
         self.imgsz = 640
         self.conf = 0.8
