@@ -25,6 +25,9 @@ class MLRescueNode(Node):
             self.inference_callback(),
             10,
         )
+        self.dw = 1536
+        self.dh = 864
 
     def inference_callback(self, msg):
         self.get_logger().info(f'Recieved: {msg}')
+        self.get_logger().info(f'How does {msg} look and is it within {self.dw} {self.dh}')
