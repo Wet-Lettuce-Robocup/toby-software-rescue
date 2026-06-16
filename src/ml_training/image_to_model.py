@@ -39,6 +39,9 @@ class ImageToModel:
                 wait = cv2.waitKey(1) & 0xFF  # Wait for 100ms
                 if wait == ord(' '):  # ESC key to exit
                     run = True
+                if wait == ord('q'):
+                    return False
+
             while run:
                 frame = picam2.capture_array()
                 if frame is not None:
