@@ -24,7 +24,7 @@ class VisionNode(Node):
     def __init__(self):
         super().__init__('vision_node')
 
-        self.declare_parameter('raw_image_topic', '/front_camera/image_raw')
+        self.declare_parameter('raw_image_topic', '/front_camera/camera_node/image_raw')
         self.declare_parameter('ml_rescue_debug', False)
 
         self.debug = self.get_parameter('ml_rescue_debug').value
