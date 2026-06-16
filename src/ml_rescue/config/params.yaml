@@ -1,3 +1,14 @@
-ml_vision_node:
+/ml_vision_node:
   ros__parameters:
     debug: True
+
+/front_camera:
+  camera_node:
+    ros__parameters:
+      camera: 0
+      role: 'viewfinder'
+      format: 'RGB888'
+      width: 1536
+      height: 864
+      sensor_mode: '2304:1296'
+      orientation: 180

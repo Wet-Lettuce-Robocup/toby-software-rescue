@@ -89,6 +89,7 @@ class VisionNode(Node):
 
         if self.isActive:  # Change to be based on rescue state srv
             raw_frame = self.image
+            self.out.write(raw_frame)
             resized_frame = cv2.resize(raw_frame, (self.imgsz, self.imgsz))
             input_data = np.ascontiguousarray(resized_frame)
 
