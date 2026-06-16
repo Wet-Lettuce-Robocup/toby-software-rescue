@@ -49,7 +49,7 @@ class VisionNode(Node):
 
         self.bridge = CvBridge()
 
-        self.hailo = 'robotyollov8s'  # Model name
+        self.hailo = 'robotyolov8s'  # Model name
         self.hef_path = f'config/{self.hailo}.hef'  # Path to Hailo model file
         self.imgsz = 640
         self.conf = 0.8
