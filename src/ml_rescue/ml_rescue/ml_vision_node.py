@@ -55,7 +55,6 @@ class VisionNode(Node):
         self.hef_path = os.path.join(
             get_package_share_directory('ml_rescue'), 'modelhef', f'{self.hailo}.hef'
         )
-        self.hef_path = f'config/{self.hailo}.hef'  # Path to Hailo model file
         self.imgsz = 640
         self.conf = 0.8
         self.model_classes = ['ball']
