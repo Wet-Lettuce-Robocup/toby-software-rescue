@@ -31,7 +31,6 @@ setup(
         'console_scripts': [
             'testpub = ml_rescue.testpub:main',
             'testsub = ml_rescue.testsub:main',
-            'state_machine = ml_rescue.state_machine:main',
             'ml_vision_node = ml_rescue.ml_vision_node:main',
             'ml_rescue_node = ml_rescue.ml_rescue_node:main',
         ],

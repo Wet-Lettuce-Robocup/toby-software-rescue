@@ -10,14 +10,6 @@ def generate_launch_description():
 
     lifecycle = Node(
         package='ml_rescue',
-        executable='state_machine',
-        name='ml_rescue',
-        namespace='',
-        output='screen',
-        parameters=[config],
-    )
-    move = Node(
-        package='ml_rescue',
         executable='ml_rescue_node',
         name='ml_rescue_node',
         namespace='',
@@ -40,4 +32,4 @@ def generate_launch_description():
         output='screen',
         parameters=[config],
     )
-    return LaunchDescription([lifecycle, move, vision, front_camera])
+    return LaunchDescription([lifecycle, vision, front_camera])
