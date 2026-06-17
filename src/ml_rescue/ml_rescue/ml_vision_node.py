@@ -50,6 +50,7 @@ class VisionNode(Node):
         self.isActive = False
 
         self.bridge = CvBridge()
+        self.image = None
 
         self.hailo = 'robotyolov8s'  # Model name
         self.hef_path = os.path.join(
@@ -87,7 +88,7 @@ class VisionNode(Node):
         if self.isActive:
             # Convert ROS Image message to OpenCV image
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            self.frame = cv_image
+            self.image = cv_image
             self.run_inference()
 
     def run_inference(self):
