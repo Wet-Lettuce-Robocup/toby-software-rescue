@@ -233,27 +233,58 @@ class TRescue(LifecycleNode):
 
         elif self.current_state == States.SCAN:
             # Prescan for all objects OR one ball at a time
-            self.transition_to_state(States.TARGET_BALL)
+            if not self.state_started:
+                self.get_logger().info('Enabling inference and scanning for ball')
+                self.state_started = True
+
+                self.set_inference(True)
+                self.transition_to_state(States.TARGET_BALL)
 
         elif self.current_state == States.TARGET_BALL:
             # Move towards ball
-            self.transition_to_state(States.GRAB_BALL)
+            if not self.state_started:
+                self.get_logger().info('Targetting a ball')
+
+                self.transition_to_state(States.GRAB_BALL)
 
         elif self.current_state == States.GRAB_BALL:
             # Pick up ball
-            self.transition_to_state(States.TARGET_DROPZONE)
+            if not self.state_started:
+                self.get_logger().info('Grabbing ball')
+                self.state_started = True
+
+                self.set_inference(False)
+
+                self.transition_to_state(States.TARGET_DROPZONE)
 
         elif self.current_state == States.TARGET_DROPZONE:
             # Move towards dropzone
-            self.transition_to_state(States.DUMP_DROPZONE)
+            if not self.state_started:
+                self.get_logger().info('Targetting evacuation point')
+
+                self.set_inference(True)
+
+                self.transition_to_state(States.DUMP_DROPZONE)
 
         elif self.current_state == States.DUMP_DROPZONE:
             # Release balls
-            self.transition_to_state(States.EXIT)
+            if not self.state_started:
+                self.get_logger().info('Releasing balls')
+
+                self.set_inference(False)
+
+                self.transition_to_state(States.EXIT)
 
         elif self.current_state == States.EXIT:
             # Locate exit and turn rescue code off
-            self.get_logger().info('Exiting rescue.....')
+            if not self.state_started:
+                self.get_logger().info('Exiting rescue.....')
+
+                self.set_inference(True)
+                self.robot.drive(0.5)
+                self.set_inference(False)
+        else:
+            self.get_logger().warn('Invalid rescue state detected')
 
     def transition_to_state(self, new_state: States):
         self.current_state = new_state
