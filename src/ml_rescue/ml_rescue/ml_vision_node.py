@@ -8,8 +8,8 @@ from cv_bridge import CvBridge
 from hailo_platform import VDevice
 import numpy as np
 import rclpy
-from rescue_msgs.srv import EnableInference
 from rclpy.node import Node
+from rescue_msgs.srv import EnableInference
 from sensor_msgs.msg import Image
 from vision_msgs.msg import Detection2D, Detection2DArray
 
