@@ -77,8 +77,8 @@ class VisionNode(Node):
         self.dw = 1536
         self.dh = 864
 
-        self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        self.out = cv2.VideoWriter('/videos/output_video.mp4', self.fourcc, 24, (self.dw, self.dh))
+        self.fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        self.out = cv2.VideoWriter('/videos/output_video.avi', self.fourcc, 30, (self.dw, self.dh))
 
     def rescue_active_callback(self, request, response):
         self.isActive = request.enabled
@@ -94,12 +94,13 @@ class VisionNode(Node):
             # Convert ROS Image message to OpenCV image
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
             self.image = cv_image
-            self.run_inference()
+            self.out.write(self.image)
+            # self.run_inference()
 
     def run_inference(self):
 
         raw_frame = self.image
-        self.out.write(raw_frame)
+        # self.out.write(raw_frame)
         resized_frame = cv2.resize(raw_frame, (self.imgsz, self.imgsz))
         input_data = np.ascontiguousarray(resized_frame)
 
@@ -116,7 +117,7 @@ class VisionNode(Node):
         )
 
         job = self.configured_model.run_async([bindings], bound_callback)
-        print(job)
+        self.get_logger().info(job)
 
         try:
             vis_frame, latest_balls = self.results_queue.get_nowait()
@@ -170,6 +171,8 @@ class VisionNode(Node):
                         (0, 0, 255),
                         2,
                     )
+            if latest_balls is None:
+                self.get_logger().info('no balls detected')
 
             # Show the rendered frame on the screen
             if self.debug:
@@ -197,7 +200,7 @@ class VisionNode(Node):
             if score >= self.conf_threshold:
                 detections.append({'box': [y1, x1, y2, x2], 'score': score})
 
-        print(completion_info)
+        self.get_logger().info(completion_info)
 
         # Push both the frame and its matching detections to the main thread
         if not self.results_queue.full():
