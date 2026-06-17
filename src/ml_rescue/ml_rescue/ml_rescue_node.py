@@ -307,7 +307,6 @@ def main(args=None):
     finally:
         node.destroy_node()
         rclpy.shutdown()
-        node.out.release()
 
 
 if __name__ == '__main__':

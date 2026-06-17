@@ -11,7 +11,12 @@ import rclpy
 from rclpy.node import Node
 from rescue_msgs.srv import EnableInference
 from sensor_msgs.msg import Image
-from vision_msgs.msg import Detection2D, Detection2DArray
+from vision_msgs.msg import (
+    BoundingBox2D,
+    Detection2D,
+    Detection2DArray,
+    ObjectHypothesisWithPose,
+)
 
 
 class VisionNode(Node):
@@ -117,6 +122,7 @@ class VisionNode(Node):
             vis_frame, latest_balls = self.results_queue.get_nowait()
 
             detection_msg = Detection2DArray()
+            detection_msg.header.frame_id = 'cam'
 
             for ball in latest_balls:
                 y1, x1, y2, x2 = ball['box']
@@ -136,6 +142,7 @@ class VisionNode(Node):
                 pyc = (py1 + py2) / 2
 
                 detection = Detection2D()
+                detection.header.frame_id = 'cam'
                 detection.bbox.center.position.x = pxc
                 detection.bbox.center.position.y = pyc
 
