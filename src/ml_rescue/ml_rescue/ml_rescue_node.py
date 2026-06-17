@@ -11,8 +11,8 @@ from rclpy.lifecycle import (
 from rclpy.subscription import Subscription
 from rclpy.timer import Timer
 from robot_msgs.action import Move
+from rescue_msgs.srv import EnableInference, SetRescueState
 from std_msgs.msg import String
-from rescue_msgs.srv import SetRescueState, EnableInference
 from vision_msgs.msg import Detection2DArray
 
 
