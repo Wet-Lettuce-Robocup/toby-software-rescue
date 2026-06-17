@@ -1,6 +1,5 @@
 from enum import Enum
 
-from lifecycle_msgs.srv import ChangeState
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.lifecycle import (
@@ -9,13 +8,12 @@ from rclpy.lifecycle import (
     State,
     TransitionCallbackReturn,
 )
-from rclpy.node import Node
+from rclpy.subscription import Subscription
 from rclpy.timer import Timer
 from robot_msgs.action import Move
 from std_msgs.msg import String
+from rescue_msgs.srv import SetRescueState, EnableInference
 from vision_msgs.msg import Detection2DArray
-
-from rescue_msgs.srv import SetRescueState
 
 
 class States(Enum):
@@ -29,6 +27,8 @@ class States(Enum):
 
 
 class Movement:
+    """High level movement class that handles robot driving."""
+
     def __init__(self, node):
         self.node = node
         # setup action clients
@@ -134,30 +134,36 @@ class TRescue(LifecycleNode):
     def __init__(self) -> None:
         super().__init__('ml_rescue')
         self.current_state = States.ENTER
-        self.state_is_active = False
+        self.state_started = False
 
         self.balls_found = 0
         self.isActive = False
 
         self.pub: LifecyclePublisher | None = None
         self.timer: Timer | None = None
+        self.vision_sub: Subscription | None = None
 
         self.rescue_state_srv = self.create_service(
-            SetRescueState, 'set_rescue_state', self.set_rescue_state_callback
+            SetRescueState, '/set_rescue_state', self.set_rescue_state_callback
         )
+        self.enable_inference = self.create_client(EnableInference, '/ml_rescue/enable_inference')
         self.robot = Movement(self)
-        self.vision_sub = self.create_subscription(
-            Detection2DArray,
-            '/ml_rescue/inference_stream',
-            self.inference_callback,
-            10,
-        )
+
         self.dw = 1536
         self.dh = 864
 
     def inference_callback(self, msg):
         self.get_logger().info(f'Recieved: {msg}')
         self.get_logger().info(f'How does {msg} look and is it within {self.dw} {self.dh}')
+
+    def set_inference(self, enabled: bool):
+
+        request = EnableInference.Request()
+        request.enabled = enabled
+
+        future = self.enable_inference.call_async(request)
+
+        return future
 
     def set_rescue_state_callback(self, request, response):
         try:
@@ -169,15 +175,15 @@ class TRescue(LifecycleNode):
             response.message = f'Invalid state: {request.state}'
         return response
 
-    def change_node_state(self, client, transition_id):
-        req = ChangeState.Request()
-        req.transition.id = transition_id  # example: Transition.TRANSITION_ACTIVATE
-        future = client.call_async(req)
-        rclpy.spin_until_future_complete(self, future)
-
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Configuring rescue node')
         self.pub = self.create_lifecycle_publisher(String, 'rescue_data', 10)
+        self.vision_sub = self.create_subscription(
+            Detection2DArray,
+            '/ml_rescue/inference_stream',
+            self.inference_callback,
+            10,
+        )
         self.timer = self.create_timer(0.05, self.state_loop)
         return TransitionCallbackReturn.SUCCESS
 
@@ -197,9 +203,12 @@ class TRescue(LifecycleNode):
             self.destroy_timer(self.timer)
         if self.pub is not None:
             self.destroy_publisher(self.pub)
+        if self.vision_sub is not None:
+            self.destroy_subscriber(self.vision_sub)
 
         self.timer = None
         self.pub = None
+        self.vision_sub = None
 
         return TransitionCallbackReturn.SUCCESS
 
@@ -213,44 +222,42 @@ class TRescue(LifecycleNode):
 
         if self.current_state == States.ENTER:
             # Enter the rescue zone
-            if not self.state_is_active:
+            if not self.state_started:
                 self.get_logger().info('Entering rescue zone')
-                self.state_is_active = True
+                self.state_started = True
 
-                # # move into centre of rescue zone
-                # twist = Twist()
-                # twist.linear.x = 0.2
-                # self.twist_pub.publish(twist)  # Theoretically makes robot move forwards
-                self.current_state = States.SCAN
+                # move into centre of rescue zone
+                self.robot.drive(0.2)
+
+                self.transition_to_state(States.SCAN)
 
         elif self.current_state == States.SCAN:
             # Prescan for all objects OR one ball at a time
-            self.current_state = States.TARGET_BALL
+            self.transition_to_state(States.TARGET_BALL)
 
         elif self.current_state == States.TARGET_BALL:
             # Move towards ball
-            self.current_state = States.GRAB_BALL
+            self.transition_to_state(States.GRAB_BALL)
 
         elif self.current_state == States.GRAB_BALL:
             # Pick up ball
-            self.robot.drive(1)
-            self.current_state = States.TARGET_DROPZONE
+            self.transition_to_state(States.TARGET_DROPZONE)
 
         elif self.current_state == States.TARGET_DROPZONE:
             # Move towards dropzone
-            self.current_state = States.DUMP_DROPZONE
+            self.transition_to_state(States.DUMP_DROPZONE)
 
         elif self.current_state == States.DUMP_DROPZONE:
             # Release balls
-            self.current_state = States.EXIT
+            self.transition_to_state(States.EXIT)
 
         elif self.current_state == States.EXIT:
             # Locate exit and turn rescue code off
-            pass
+            self.get_logger().info('Exiting rescue.....')
 
     def transition_to_state(self, new_state: States):
         self.current_state = new_state
-        self.state_is_active = False
+        self.state_started = False
 
 
 def main(args=None):

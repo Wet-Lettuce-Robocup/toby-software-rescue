@@ -1,0 +1,6 @@
+# Request
+bool enabled
+---
+# Response
+bool success
+string message

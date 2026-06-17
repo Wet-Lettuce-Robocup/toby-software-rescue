@@ -10,7 +10,7 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from std_msgs.msg import Bool
+from rescue_msgs.srv import EnableInference
 from vision_msgs.msg import Detection2D, Detection2DArray
 
 
@@ -44,8 +44,8 @@ class VisionNode(Node):
         self.inference_pub = self.create_publisher(
             Detection2DArray, '/ml_rescue/inference_stream', 10
         )
-        self.rescue_active_sub = self.create_subscription(
-            Bool, '/rescue_active', self.rescue_active_callback, 10
+        self.rescue_active_srv = self.create_service(
+            EnableInference, '/ml_rescue/enable_inference', self.rescue_active_callback
         )
         self.isActive = False
 
@@ -61,8 +61,6 @@ class VisionNode(Node):
 
         self.results_queue = queue.Queue(maxsize=2)
 
-        self.timer = self.create_timer(0.05, self.run_inference)
-
         self.target = VDevice()
         self.infer_model = self.target.create_infer_model(self.hef_path)
         self.input_name = self.infer_model.input_names[0]
@@ -76,97 +74,103 @@ class VisionNode(Node):
         self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         self.out = cv2.VideoWriter('/videos/output_video.mp4', self.fourcc, 24, (self.dw, self.dh))
 
-    def rescue_active_callback(self, msg: Bool) -> None:
-        self.isActive = msg.data
+    def rescue_active_callback(self, request, response):
+        self.isActive = request.enabled
+        response.message = 'Inference enabled' if request.enabled else 'Inference disabled'
+
+        self.get_logger().info(response.message)
+
+        return response
 
     def image_callback(self, msg):
 
-        # Convert ROS Image message to OpenCV image
-        cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        self.frame = cv_image
+        if self.isActive:
+            # Convert ROS Image message to OpenCV image
+            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            self.frame = cv_image
+            self.run_inference()
 
     def run_inference(self):
 
-        if self.isActive:  # Change to be based on rescue state srv
-            raw_frame = self.image
-            self.out.write(raw_frame)
-            resized_frame = cv2.resize(raw_frame, (self.imgsz, self.imgsz))
-            input_data = np.ascontiguousarray(resized_frame)
+        raw_frame = self.image
+        self.out.write(raw_frame)
+        resized_frame = cv2.resize(raw_frame, (self.imgsz, self.imgsz))
+        input_data = np.ascontiguousarray(resized_frame)
 
-            bindings = self.configured_model.create_bindings()
-            bindings.input(self.input_name).set_buffer(input_data)
+        bindings = self.configured_model.create_bindings()
+        bindings.input(self.input_name).set_buffer(input_data)
 
-            output_buffer = np.zeros(self.output_shape, dtype=np.float32)
-            bindings.output(self.output_name).set_buffer(output_buffer)
+        output_buffer = np.zeros(self.output_shape, dtype=np.float32)
+        bindings.output(self.output_name).set_buffer(output_buffer)
 
-            bound_callback = partial(
-                self._inference_callback,
-                output_buffer=output_buffer,
-                display_frame=raw_frame.copy(),
-            )
+        bound_callback = partial(
+            self._inference_callback,
+            output_buffer=output_buffer,
+            display_frame=raw_frame.copy(),
+        )
 
-            job = self.configured_model.run_async([bindings], bound_callback)
-            print(job)
+        job = self.configured_model.run_async([bindings], bound_callback)
+        print(job)
 
-            try:
-                vis_frame, latest_balls = self.results_queue.get_nowait()
+        try:
+            vis_frame, latest_balls = self.results_queue.get_nowait()
 
-                detection_msg = Detection2DArray()
+            detection_msg = Detection2DArray()
 
-                for ball in latest_balls:
-                    y1, x1, y2, x2 = ball['box']
-                    score = ball['score']
+            for ball in latest_balls:
+                y1, x1, y2, x2 = ball['box']
+                score = ball['score']
 
-                    # Scale values back to original frame size
-                    px1 = int(x1 * self.dw)
-                    py1 = int(y1 * self.dh)
-                    px2 = int(x2 * self.dw)
-                    py2 = int(y2 * self.dh)
+                # Scale values back to original frame size
+                px1 = int(x1 * self.dw)
+                py1 = int(y1 * self.dh)
+                px2 = int(x2 * self.dw)
+                py2 = int(y2 * self.dh)
 
-                    # Clamp boxes inside your image frames
-                    px1, px2 = max(0, min(self.dw, px1)), max(0, min(self.dw, px2))
-                    py1, py2 = max(0, min(self.dh, py1)), max(0, min(self.dh, py2))
+                # Clamp boxes inside your image frames
+                px1, px2 = max(0, min(self.dw, px1)), max(0, min(self.dw, px2))
+                py1, py2 = max(0, min(self.dh, py1)), max(0, min(self.dh, py2))
 
-                    pxc = (px1 + px2) / 2
-                    pyc = (py1 + py2) / 2
+                pxc = (px1 + px2) / 2
+                pyc = (py1 + py2) / 2
 
-                    detection = Detection2D()
-                    detection.bbox.center.position.x = pxc
-                    detection.bbox.center.position.y = pyc
+                detection = Detection2D()
+                detection.bbox.center.position.x = pxc
+                detection.bbox.center.position.y = pyc
 
-                    detection.bbox.size_x = px2 - px1
-                    detection.bbox.size_y = py2 - py1
+                detection.bbox.size_x = px2 - px1
+                detection.bbox.size_y = py2 - py1
 
-                    detection.results[0].score = score
+                detection.results[0].score = score
 
-                    detection_msg.detections.append(detection)  # To be sent to ml_rescue_node
+                detection_msg.detections.append(detection)  # To be sent to ml_rescue_node
 
-                    if self.debug:
-                        cv2.rectangle(vis_frame, (px1, py1), (px2, py2), (0, 0, 255), 2)
-                        cv2.circle(vis_frame, (pxc, pyc), 2, (0, 0, 255), -1)
-                        self.get_logger().info(
-                            f'Object detected at ({pxc},{pyc}) with confidence {score}'
-                        )
-
-                        label = f'{self.classes[0]} {score:.2f}'  # Label with confidence score
-                        cv2.putText(
-                            vis_frame,
-                            label,
-                            (px1, max(20, py1 - 5)),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.5,
-                            (0, 0, 255),
-                            2,
-                        )
-
-                # Show the rendered frame on the screen
                 if self.debug:
-                    self.out.write(vis_frame)
+                    cv2.rectangle(vis_frame, (px1, py1), (px2, py2), (0, 0, 255), 2)
+                    cv2.circle(vis_frame, (pxc, pyc), 2, (0, 0, 255), -1)
+                    self.get_logger().info(
+                        f'Object detected at ({pxc},{pyc}) with confidence {score}'
+                    )
 
-            except queue.Empty:
-                pass
+                    label = f'{self.classes[0]} {score:.2f}'  # Label with confidence score
+                    cv2.putText(
+                        vis_frame,
+                        label,
+                        (px1, max(20, py1 - 5)),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 0, 255),
+                        2,
+                    )
 
-            self.inference_pub.publish(detection_msg)
+            # Show the rendered frame on the screen
+            if self.debug:
+                self.out.write(vis_frame)
+
+        except queue.Empty:
+            pass
+
+        self.inference_pub.publish(detection_msg)
 
     def _inference_callback(self, completion_info, output_buffer=None, display_frame=None):
 
