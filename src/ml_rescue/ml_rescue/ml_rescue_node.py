@@ -137,6 +137,7 @@ class TRescue(LifecycleNode):
         self.state_started = False
 
         self.balls_found = 0
+        self.isRobot = False
         self.isActive = False
 
         self.pub: LifecyclePublisher | None = None
@@ -151,10 +152,12 @@ class TRescue(LifecycleNode):
 
         self.dw = 1536
         self.dh = 864
+        self.data = None
 
     def inference_callback(self, msg):
         self.get_logger().info(f'Recieved: {msg}')
         self.get_logger().info(f'How does {msg} look and is it within {self.dw} {self.dh}')
+        self.data = msg
 
     def set_inference(self, enabled: bool):
 
@@ -227,7 +230,8 @@ class TRescue(LifecycleNode):
                 self.state_started = True
 
                 # move into centre of rescue zone
-                self.robot.drive(0.2)
+                if self.isRobot:
+                    self.robot.drive(0.2)
 
                 self.transition_to_state(States.SCAN)
 
@@ -238,7 +242,8 @@ class TRescue(LifecycleNode):
                 self.state_started = True
 
                 self.set_inference(True)
-                self.transition_to_state(States.TARGET_BALL)
+                if self.data is not None:
+                    self.transition_to_state(States.TARGET_BALL)
 
         elif self.current_state == States.TARGET_BALL:
             # Move towards ball
@@ -281,7 +286,8 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Exiting rescue.....')
 
                 self.set_inference(True)
-                self.robot.drive(0.5)
+                if self.isRobot:
+                    self.robot.drive(0.5)
                 self.set_inference(False)
         else:
             self.get_logger().warn('Invalid rescue state detected')

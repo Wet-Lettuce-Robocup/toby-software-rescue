@@ -170,8 +170,8 @@ class VisionNode(Node):
 
         except queue.Empty:
             pass
-
-        self.inference_pub.publish(detection_msg)
+        if detection_msg is not None:
+            self.inference_pub.publish(detection_msg)
 
     def _inference_callback(self, completion_info, output_buffer=None, display_frame=None):
 
