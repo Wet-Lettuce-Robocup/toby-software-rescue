@@ -1,5 +1,6 @@
 from functools import partial
 import os
+import subprocess
 import queue
 
 from ament_index_python.packages import get_package_share_directory
@@ -78,7 +79,7 @@ class VisionNode(Node):
         self.dh = 864
 
         self.fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        self.out = cv2.VideoWriter('/videos/output_video.avi', self.fourcc, 30, (self.dw, self.dh))
+        self.out = cv2.VideoWriter('/videos/output_video.avi', self.fourcc, 10, (self.dw, self.dh))
 
     def rescue_active_callback(self, request, response):
         self.isActive = request.enabled
@@ -222,6 +223,16 @@ def main(args=None):
     vision_node.destroy_node()
     rclpy.shutdown()
     vision_node.out.release()
+    command = [
+    'ffmpeg', 
+    '-y',                      # Overwrites the output file if it already exists
+    '-i', '/videos/output_video.avi',        # Input file
+    '-vcodec', 'libx264',      # H.264 video codec for compression
+    '-crf', '28',              # Compression level (higher = smaller file)
+    '/videos/output.mp4'    # Output file
+]
+    subprocess.run(command, check=True)
+    os.remove('/videos/output_video.avi')
 
 
 if __name__ == '__main__':
