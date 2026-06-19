@@ -80,13 +80,16 @@ class VisionNode(Node):
         self.dh = 864
 
         self.fps = 10
-        self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        pipeline = 'appsrc ! videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! mp4mux fragment-duration=1000 ! filesink location=/videos/output_video.mp4'
-        self.out = cv2.VideoWriter(pipeline, cv2.CAP_GSTREAMER, 0, 10, (1536, 864))
-        self.get_logger().info(f'Video writer opened: {self.out.isOpened()}')
-
         self.last_frame = self.get_clock().now()
         self.period = 1 / self.fps
+
+        pipeline = (
+            f'appsrc ! video/x-raw,format=BGR,width={self.dw},height={self.dh},framerate={self.fps}/1'
+            '! videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast'
+            '! mp4mux fragment-duration=1000 ! filesink location=/videos/output_video.mp4'
+        )
+        self.out = cv2.VideoWriter(pipeline, cv2.CAP_GSTREAMER, 0, self.fps, (self.dw, self.dh))
+        self.get_logger().info(f'Video writer opened: {self.out.isOpened()}')
 
     def rescue_active_callback(self, request, response):
         self.isActive = request.enabled
@@ -103,7 +106,7 @@ class VisionNode(Node):
             if (now - self.last_frame).nanoseconds < self.period * 1e9:
                 return
             self.last_frame = now
-
+            self.get_logger().info(msg.shape, msg.dtype)
             # Convert ROS Image message to OpenCV image
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
             self.image = cv_image
