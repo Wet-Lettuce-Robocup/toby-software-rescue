@@ -198,6 +198,8 @@ class TRescue(LifecycleNode):
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Deactivating rescue node')
         self.isActive = False
+        self.set_inference(False)
+
         return super().on_activate(state)
 
     def on_cleanup(self, state: State) -> TransitionCallbackReturn:

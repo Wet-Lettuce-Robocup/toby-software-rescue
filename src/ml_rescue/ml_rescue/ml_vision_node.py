@@ -79,13 +79,13 @@ class VisionNode(Node):
         self.dw = 1536
         self.dh = 864
 
+        self.fps = 10
         self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         self.out = cv2.VideoWriter(
             '/videos/output_video.mp4', self.fourcc, self.fps, (self.dw, self.dh)
         )
 
         self.last_frame = self.get_clock().now()
-        self.fps = 10
         self.period = 1 / self.fps
 
     def rescue_active_callback(self, request, response):
@@ -233,9 +233,9 @@ def main(args=None):
     rclpy.init(args=args)
     vision_node = VisionNode()
     rclpy.spin(vision_node)
+    vision_node.out.release()
     vision_node.destroy_node()
     rclpy.shutdown()
-    vision_node.out.release()
     # command = [
     #     'ffmpeg',
     #     '-y',  # Overwrites the output file if it already exists
