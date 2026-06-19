@@ -1,6 +1,7 @@
 from functools import partial
 import os
-import subprocess
+
+# import subprocess
 import queue
 
 from ament_index_python.packages import get_package_share_directory
@@ -78,8 +79,14 @@ class VisionNode(Node):
         self.dw = 1536
         self.dh = 864
 
-        self.fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        self.out = cv2.VideoWriter('/videos/output_video.avi', self.fourcc, 10, (self.dw, self.dh))
+        self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        self.out = cv2.VideoWriter(
+            '/videos/output_video.mp4', self.fourcc, self.fps, (self.dw, self.dh)
+        )
+
+        self.last_frame = self.get_clock().now()
+        self.fps = 10
+        self.period = 1 / self.fps
 
     def rescue_active_callback(self, request, response):
         self.isActive = request.enabled
@@ -92,7 +99,13 @@ class VisionNode(Node):
     def image_callback(self, msg):
 
         if self.isActive:
+            now = self.get_clock().now()
+            if (now - self.last_time).nanoseconds < self.period * 1e9:
+                return
+            self.last_frame = now
+
             # Convert ROS Image message to OpenCV image
+            self.get_logger().info(f'Recieved image: {msg.height}x{msg.width}')
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
             self.image = cv_image
             self.out.write(self.image)
@@ -223,16 +236,19 @@ def main(args=None):
     vision_node.destroy_node()
     rclpy.shutdown()
     vision_node.out.release()
-    command = [
-    'ffmpeg', 
-    '-y',                      # Overwrites the output file if it already exists
-    '-i', '/videos/output_video.avi',        # Input file
-    '-vcodec', 'libx264',      # H.264 video codec for compression
-    '-crf', '28',              # Compression level (higher = smaller file)
-    '/videos/output.mp4'    # Output file
-]
-    subprocess.run(command, check=True)
-    os.remove('/videos/output_video.avi')
+    # command = [
+    #     'ffmpeg',
+    #     '-y',  # Overwrites the output file if it already exists
+    #     '-i',
+    #     'videos/output_video.avi',  # Input file
+    #     '-vcodec',
+    #     'libx264',  # H.264 video codec for compression
+    #     '-crf',
+    #     '28',  # Compression level (higher = smaller file)
+    #     'videos/output.mp4',  # Output file
+    # ]
+    # subprocess.run(command, check=True)
+    # os.remove('videos/output_video.avi')
 
 
 if __name__ == '__main__':
