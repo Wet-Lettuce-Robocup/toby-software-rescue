@@ -65,7 +65,7 @@ class VisionNode(Node):
             get_package_share_directory('ml_rescue'), 'modelhef', f'{self.hailo}.hef'
         )
         self.imgsz = 640
-        self.conf = 0.8
+        self.conf_threshold = 0.8
         self.model_classes = ['ball']
 
         self.results_queue = queue.Queue(maxsize=2)
@@ -122,7 +122,6 @@ class VisionNode(Node):
         # self.out.write(raw_frame)
         resized_frame = cv2.resize(raw_frame, (self.imgsz, self.imgsz))
         input_data = np.ascontiguousarray(resized_frame)
-        self.get_logger().info('past np')
 
         bindings = self.configured_model.create_bindings()
         bindings.input(self.input_name).set_buffer(input_data)
@@ -130,16 +129,19 @@ class VisionNode(Node):
         output_buffer = np.zeros(self.output_shape, dtype=np.float32)
         bindings.output(self.output_name).set_buffer(output_buffer)
 
-        self.get_logger().info('past bindings')
-
         bound_callback = partial(
             self._inference_callback,
             output_buffer=output_buffer,
             display_frame=raw_frame.copy(),
         )
 
+        self.get_logger().info('past bound callback setup')
+
         job = self.configured_model.run_async([bindings], bound_callback)
-        self.get_logger().info(job)
+        job.wait(1000)
+        self.get_logger().info(f'Job info: {job}')
+
+        self.get_logger().info('past job')
 
         try:
             vis_frame, latest_balls = self.results_queue.get_nowait()
@@ -184,7 +186,7 @@ class VisionNode(Node):
                         f'Object detected at ({pxc},{pyc}) with confidence {score}'
                     )
 
-                    label = f'{self.classes[0]} {score:.2f}'  # Label with confidence score
+                    label = f'{self.model_classes[0]} {score:.2f}'  # Label with confidence score
                     cv2.putText(
                         vis_frame,
                         label,
@@ -213,7 +215,7 @@ class VisionNode(Node):
         num_detections = int(flat_buffer[0])
         detections = []
 
-        self.get_logger().info(flat_buffer)
+        self.get_logger().info(f'Flat buffer: {flat_buffer[0]}')
 
         for i in range(num_detections):
             start_idx = 1 + (i * 5)
@@ -226,7 +228,7 @@ class VisionNode(Node):
             if score >= self.conf_threshold:
                 detections.append({'box': [y1, x1, y2, x2], 'score': score})
 
-        self.get_logger().info(completion_info)
+        self.get_logger().info(f'Completion info: {completion_info}')
 
         # Push both the frame and its matching detections to the main thread
         if not self.results_queue.full():
