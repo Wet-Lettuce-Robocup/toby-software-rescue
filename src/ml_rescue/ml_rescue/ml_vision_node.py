@@ -84,8 +84,8 @@ class VisionNode(Node):
         self.period = 1 / self.fps
 
         pipeline = (
-            f'appsrc ! video/x-raw,format=BGR,width={self.dw},height={self.dh},framerate={self.fps}/1'
-            '! videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast'
+            f'appsrc ! video/x-raw,format=BGR,width={self.dw},height={self.dh},framerate={self.fps}/1 '
+            '! videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast '
             '! mp4mux fragment-duration=1000 ! filesink location=/videos/output_video.mp4'
         )
         self.out = cv2.VideoWriter(pipeline, cv2.CAP_GSTREAMER, 0, self.fps, (self.dw, self.dh))
