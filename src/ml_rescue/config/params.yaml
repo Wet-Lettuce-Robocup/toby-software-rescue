@@ -1,6 +1,6 @@
 /ml_vision_node:
   ros__parameters:
-    debug: True
+    ml_rescue_debug: true
 
 /front_camera:
   camera_node:

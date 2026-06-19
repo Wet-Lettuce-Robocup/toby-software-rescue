@@ -35,6 +35,7 @@ class VisionNode(Node):
         self.declare_parameter('ml_rescue_debug', False)
 
         self.debug = self.get_parameter('ml_rescue_debug').value
+        self.get_logger().info(f'Vision node debug status: {self.debug}')
 
         self.camera_sub = self.create_subscription(
             Image,
@@ -79,14 +80,13 @@ class VisionNode(Node):
         self.dw = 1536
         self.dh = 864
 
-        self.fps = 10
-        self.last_frame = self.get_clock().now()
-        self.period = 1 / self.fps
+        self.fps = 15
+        self.frame_count = 0
 
         pipeline = (
-            f'appsrc ! video/x-raw,format=RGB,width={self.dw},height={self.dh},framerate={self.fps}/1 '
+            f'appsrc ! queue ! video/x-raw,format=BGR,width={self.dw},height={self.dh},framerate={self.fps}/1 '
             '! videoconvert '
-            '! x264enc bitrate=8000 tune=zerolatency speed-preset=veryfast '
+            '! x264enc bitrate=8000 tune=zerolatency speed-preset=fast '
             '! mp4mux fragment-duration=1000 ! filesink location=/videos/output_video.mp4'
         )
         self.out = cv2.VideoWriter(pipeline, cv2.CAP_GSTREAMER, 0, self.fps, (self.dw, self.dh))
@@ -102,19 +102,19 @@ class VisionNode(Node):
 
     def image_callback(self, msg):
 
-        if self.isActive:
-            now = self.get_clock().now()
-            if (now - self.last_frame).nanoseconds < self.period * 1e9:
-                return
-            self.last_frame = now
+        if not self.isActive:
+            return
+
+        self.frame_count += 1
+        self.image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        # self.out.write(self.image)
+        if self.frame_count % 2 == 0:
             # Convert ROS Image message to OpenCV image
-            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='rgb8')
-            self.image = cv_image
             # self.get_logger().info(
             #     f'Processing image with type {cv_image.dtype}, shape {cv_image.shape}'
             # )
-            self.out.write(self.image)
-            # self.run_inference()
+            self.get_logger().info('Running inference on frame')
+            self.run_inference()
 
     def run_inference(self):
 
@@ -122,12 +122,15 @@ class VisionNode(Node):
         # self.out.write(raw_frame)
         resized_frame = cv2.resize(raw_frame, (self.imgsz, self.imgsz))
         input_data = np.ascontiguousarray(resized_frame)
+        self.get_logger().info('past np')
 
         bindings = self.configured_model.create_bindings()
         bindings.input(self.input_name).set_buffer(input_data)
 
         output_buffer = np.zeros(self.output_shape, dtype=np.float32)
         bindings.output(self.output_name).set_buffer(output_buffer)
+
+        self.get_logger().info('past bindings')
 
         bound_callback = partial(
             self._inference_callback,
@@ -145,6 +148,7 @@ class VisionNode(Node):
             detection_msg.header.frame_id = 'cam'
 
             for ball in latest_balls:
+                self.get_logger().info('Ball detected')
                 y1, x1, y2, x2 = ball['box']
                 score = ball['score']
 
@@ -204,9 +208,12 @@ class VisionNode(Node):
 
     def _inference_callback(self, completion_info, output_buffer=None, display_frame=None):
 
+        self.get_logger().info('in inference cb')
         flat_buffer = output_buffer.flatten()
         num_detections = int(flat_buffer[0])
         detections = []
+
+        self.get_logger().info(flat_buffer)
 
         for i in range(num_detections):
             start_idx = 1 + (i * 5)
@@ -223,6 +230,7 @@ class VisionNode(Node):
 
         # Push both the frame and its matching detections to the main thread
         if not self.results_queue.full():
+            self.get_logger().info('pushing results')
             self.results_queue.put_nowait((display_frame, detections))
 
     def test_display_callback(self, msg):
