@@ -100,7 +100,7 @@ class VisionNode(Node):
 
         if self.isActive:
             now = self.get_clock().now()
-            if (now - self.last_time).nanoseconds < self.period * 1e9:
+            if (now - self.last_frame).nanoseconds < self.period * 1e9:
                 return
             self.last_frame = now
 
