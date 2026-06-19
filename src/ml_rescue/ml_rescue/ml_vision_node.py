@@ -84,8 +84,9 @@ class VisionNode(Node):
         self.period = 1 / self.fps
 
         pipeline = (
-            f'appsrc ! video/x-raw,format=BGR,width={self.dw},height={self.dh},framerate={self.fps}/1 '
-            '! videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast '
+            f'appsrc ! video/x-raw,format=RGB,width={self.dw},height={self.dh},framerate={self.fps}/1 '
+            '! videoconvert '
+            '! x264enc bitrate=8000 tune=zerolatency speed-preset=veryfast '
             '! mp4mux fragment-duration=1000 ! filesink location=/videos/output_video.mp4'
         )
         self.out = cv2.VideoWriter(pipeline, cv2.CAP_GSTREAMER, 0, self.fps, (self.dw, self.dh))
@@ -107,11 +108,11 @@ class VisionNode(Node):
                 return
             self.last_frame = now
             # Convert ROS Image message to OpenCV image
-            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='rgb8')
             self.image = cv_image
-            self.get_logger().info(
-                f'Processing image with type {cv_image.dtype}, shape {cv_image.shape}'
-            )
+            # self.get_logger().info(
+            #     f'Processing image with type {cv_image.dtype}, shape {cv_image.shape}'
+            # )
             self.out.write(self.image)
             # self.run_inference()
 
