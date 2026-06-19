@@ -84,6 +84,7 @@ class VisionNode(Node):
         self.out = cv2.VideoWriter(
             '/videos/output_video.mp4', self.fourcc, self.fps, (self.dw, self.dh)
         )
+        self.get_logger().info(f'Video writer opened: {self.out.isOpened()}')
 
         self.last_frame = self.get_clock().now()
         self.period = 1 / self.fps
@@ -105,7 +106,6 @@ class VisionNode(Node):
             self.last_frame = now
 
             # Convert ROS Image message to OpenCV image
-            self.get_logger().info(f'Recieved image: {msg.height}x{msg.width}')
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
             self.image = cv_image
             self.out.write(self.image)
@@ -230,12 +230,16 @@ class VisionNode(Node):
 
 
 def main(args=None):
-    rclpy.init(args=args)
-    vision_node = VisionNode()
-    rclpy.spin(vision_node)
-    vision_node.out.release()
-    vision_node.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.init(args=args)
+        vision_node = VisionNode()
+        rclpy.spin(vision_node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        vision_node.out.release()
+        vision_node.destroy_node()
+        rclpy.shutdown()
     # command = [
     #     'ffmpeg',
     #     '-y',  # Overwrites the output file if it already exists
