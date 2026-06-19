@@ -81,9 +81,7 @@ class VisionNode(Node):
 
         self.fps = 10
         self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        pipeline = (
-            'appsrc ! videoconvert ! x264enc ! mp4mux ! filesink location=/videos/output_video.mp4'
-        )
+        pipeline = 'appsrc ! videoconvert ! x264enc tune=zerolatency speed-preset=ultrafast ! mp4mux fragment-duration=1000 ! filesink location=/videos/output_video.mp4'
         self.out = cv2.VideoWriter(pipeline, cv2.CAP_GSTREAMER, 0, 10, (1536, 864))
         self.get_logger().info(f'Video writer opened: {self.out.isOpened()}')
 
@@ -239,6 +237,7 @@ def main(args=None):
         pass
     finally:
         vision_node.out.release()
+        vision_node.target.release()
         vision_node.destroy_node()
         rclpy.shutdown()
     # command = [
