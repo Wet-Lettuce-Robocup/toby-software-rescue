@@ -156,7 +156,7 @@ class TRescue(LifecycleNode):
 
     def inference_callback(self, msg):
         self.get_logger().info(f'Recieved: {msg}')
-        self.get_logger().info(f'How does {msg} look and is it within {self.dw} {self.dh}')
+        self.get_logger().info(f'Is {msg.detections} within w{self.dw} h{self.dh}\n')
         self.data = msg
 
     def set_inference(self, enabled: bool):

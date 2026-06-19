@@ -113,7 +113,7 @@ class VisionNode(Node):
             # self.get_logger().info(
             #     f'Processing image with type {cv_image.dtype}, shape {cv_image.shape}'
             # )
-            self.get_logger().info('Running inference on frame')
+            # self.get_logger().info('Running inference on frame')
             self.run_inference()
 
     def run_inference(self):
@@ -135,13 +135,8 @@ class VisionNode(Node):
             display_frame=raw_frame.copy(),
         )
 
-        self.get_logger().info('past bound callback setup')
-
         job = self.configured_model.run_async([bindings], bound_callback)
         job.wait(1000)
-        self.get_logger().info(f'Job info: {job}')
-
-        self.get_logger().info('past job')
 
         try:
             vis_frame, latest_balls = self.results_queue.get_nowait()
@@ -167,19 +162,25 @@ class VisionNode(Node):
                 pxc = (px1 + px2) / 2
                 pyc = (py1 + py2) / 2
 
+                # self.get_logger().info(f'pxc={pxc} ({type(pxc)}), pyc={pyc} ({type(pyc)})')
+
                 detection = Detection2D()
                 detection.header.frame_id = 'cam'
                 detection.bbox.center.position.x = pxc
                 detection.bbox.center.position.y = pyc
+                detection.bbox.size_x = float(px2 - px1)
+                detection.bbox.size_y = float(py2 - py1)
 
-                detection.bbox.size_x = px2 - px1
-                detection.bbox.size_y = py2 - py1
+                hypothesis = ObjectHypothesisWithPose()
+                hypothesis.hypothesis.class_id = self.model_classes[0]
+                hypothesis.hypothesis.score = float(score)
 
-                detection.results[0].score = score
-
+                detection.results.append(hypothesis)
                 detection_msg.detections.append(detection)  # To be sent to ml_rescue_node
 
                 if self.debug:
+                    pxc, pyc, px1, py1, px2, py2 = map(int, (pxc, pyc, px1, py1, px2, py2))
+
                     cv2.rectangle(vis_frame, (px1, py1), (px2, py2), (0, 0, 255), 2)
                     cv2.circle(vis_frame, (pxc, pyc), 2, (0, 0, 255), -1)
                     self.get_logger().info(
@@ -210,12 +211,11 @@ class VisionNode(Node):
 
     def _inference_callback(self, completion_info, output_buffer=None, display_frame=None):
 
-        self.get_logger().info('in inference cb')
         flat_buffer = output_buffer.flatten()
         num_detections = int(flat_buffer[0])
         detections = []
 
-        self.get_logger().info(f'Flat buffer: {flat_buffer[0]}')
+        # self.get_logger().info(f'Flat buffer: {flat_buffer[0]}')
 
         for i in range(num_detections):
             start_idx = 1 + (i * 5)
@@ -228,11 +228,10 @@ class VisionNode(Node):
             if score >= self.conf_threshold:
                 detections.append({'box': [y1, x1, y2, x2], 'score': score})
 
-        self.get_logger().info(f'Completion info: {completion_info}')
+        # self.get_logger().info(f'Completion info: {completion_info}')
 
         # Push both the frame and its matching detections to the main thread
         if not self.results_queue.full():
-            self.get_logger().info('pushing results')
             self.results_queue.put_nowait((display_frame, detections))
 
     def test_display_callback(self, msg):
