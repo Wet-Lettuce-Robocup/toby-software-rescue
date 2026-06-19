@@ -106,10 +106,10 @@ class VisionNode(Node):
             if (now - self.last_frame).nanoseconds < self.period * 1e9:
                 return
             self.last_frame = now
-            self.get_logger().info(msg.dtype)
             # Convert ROS Image message to OpenCV image
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
             self.image = cv_image
+            self.get_logger().info(cv_image.dtype, cv_image.shape)
             self.out.write(self.image)
             # self.run_inference()
 
