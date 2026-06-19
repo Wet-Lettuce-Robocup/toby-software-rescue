@@ -81,9 +81,10 @@ class VisionNode(Node):
 
         self.fps = 10
         self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        self.out = cv2.VideoWriter(
-            '/videos/output_video.mp4', self.fourcc, self.fps, (self.dw, self.dh)
+        pipeline = (
+            'appsrc ! videoconvert ! x264enc ! mp4mux ! filesink location=/videos/output_video.mp4'
         )
+        self.out = cv2.VideoWriter(pipeline, cv2.CAP_GSTREAMER, 0, 10, (1536, 864))
         self.get_logger().info(f'Video writer opened: {self.out.isOpened()}')
 
         self.last_frame = self.get_clock().now()
