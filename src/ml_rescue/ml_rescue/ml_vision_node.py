@@ -114,9 +114,9 @@ class VisionNode(Node):
             #     f'Processing image with type {cv_image.dtype}, shape {cv_image.shape}'
             # )
             # self.get_logger().info('Running inference on frame')
-            self.run_inference()
+            self.run_inference(msg)
 
-    def run_inference(self):
+    def run_inference(self, msg):
 
         raw_frame = self.image
         # self.out.write(raw_frame)
@@ -142,7 +142,8 @@ class VisionNode(Node):
             vis_frame, latest_balls = self.results_queue.get_nowait()
 
             detection_msg = Detection2DArray()
-            detection_msg.header.frame_id = 'cam'
+            detection_msg.header.stamp = msg.header.stamp
+            detection_msg.header.frame_id = msg.header.frame_id
 
             for ball in latest_balls:
                 # self.get_logger().info('Ball detected')
@@ -165,7 +166,8 @@ class VisionNode(Node):
                 # self.get_logger().info(f'pxc={pxc} ({type(pxc)}), pyc={pyc} ({type(pyc)})')
 
                 detection = Detection2D()
-                detection.header.frame_id = 'cam'
+                detection.header = detection_msg.header
+
                 detection.bbox.center.position.x = pxc
                 detection.bbox.center.position.y = pyc
                 detection.bbox.size_x = float(px2 - px1)
