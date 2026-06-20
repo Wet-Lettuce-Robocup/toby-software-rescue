@@ -1,4 +1,5 @@
 from enum import Enum
+import math
 
 import rclpy
 from rclpy.action import ActionClient
@@ -136,7 +137,6 @@ class TRescue(LifecycleNode):
         self.current_state = States.ENTER
         self.state_started = False
 
-        self.balls_found = 0
         self.isRobot = False
         self.isActive = False
 
@@ -152,12 +152,55 @@ class TRescue(LifecycleNode):
 
         self.dw = 1536
         self.dh = 864
+        self.f_length = 2.75  # mm aka F2.2
+        self.ball_radius = 50  # mm
+        self.fx = (self.dw * self.f_length) / 6.54
+        self.fy = (self.dh * self.f_length) / 3.63
+        self.f_pixels = (self.fx + self.fy) / 2
+        self.distance_factor = self.f_pixels * self.ball_radius
+
+        self.ball_dist = 0
+        self.obstacle: list = []
+
         self.data = None
+        self.balls_found = 0
 
     def inference_callback(self, msg):
-        self.get_logger().info(f'Recieved: {msg}')
-        self.get_logger().info(f'Is {msg.detections} within w{self.dw} h{self.dh}\n')
-        self.data = msg
+        if len(msg.detections) == 0:
+            self.get_logger().warn('Detection subscriber fail')
+            return
+
+        data = []
+
+        for detection in msg.detections:
+            # Skip detections with no classification
+            if len(detection.results) == 0:
+                continue
+
+            result = detection.results[0]
+            class_id = result.hypothesis.class_id
+            confidence = result.hypothesis.score
+
+            if class_id != 'ball':
+                continue
+
+            center_x = detection.bbox.center.position.x
+            center_y = detection.bbox.center.position.y
+
+            width = detection.bbox.size_x
+            height = detection.bbox.size_y
+
+            self.get_logger().info(
+                f'Ball: x={center_x:.1f}, y={center_y:.1f}, '
+                f'w={width:.1f}, h={height:.1f}, conf={confidence:.2f}'
+            )
+
+            distance = self.distance_factor / ((width + height) / 2)
+            angle = math.atan((center_x - (self.dw / 2)) / distance)
+
+            self.get_logger().info(f'Distance to ball: {distance}\nAngle to ball: {angle}')
+            data.append([class_id, confidence, distance, angle])
+            self.data = data
 
     def set_inference(self, enabled: bool):
 

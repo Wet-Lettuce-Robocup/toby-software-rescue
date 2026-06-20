@@ -14,7 +14,6 @@ from rclpy.node import Node
 from rescue_msgs.srv import EnableInference
 from sensor_msgs.msg import Image
 from vision_msgs.msg import (
-    BoundingBox2D,
     Detection2D,
     Detection2DArray,
     ObjectHypothesisWithPose,
@@ -84,7 +83,8 @@ class VisionNode(Node):
         self.frame_count = 0
 
         pipeline = (
-            f'appsrc ! queue ! video/x-raw,format=BGR,width={self.dw},height={self.dh},framerate={self.fps}/1 '
+            'appsrc ! queue '
+            f'! video/x-raw,format=BGR,width={self.dw},height={self.dh},framerate={self.fps}/1 '
             '! videoconvert '
             '! x264enc bitrate=8000 tune=zerolatency speed-preset=fast '
             '! mp4mux fragment-duration=1000 ! filesink location=/videos/output_video.mp4'
@@ -145,7 +145,7 @@ class VisionNode(Node):
             detection_msg.header.frame_id = 'cam'
 
             for ball in latest_balls:
-                self.get_logger().info('Ball detected')
+                # self.get_logger().info('Ball detected')
                 y1, x1, y2, x2 = ball['box']
                 score = ball['score']
 
@@ -183,9 +183,9 @@ class VisionNode(Node):
 
                     cv2.rectangle(vis_frame, (px1, py1), (px2, py2), (0, 0, 255), 2)
                     cv2.circle(vis_frame, (pxc, pyc), 2, (0, 0, 255), -1)
-                    self.get_logger().info(
-                        f'Object detected at ({pxc},{pyc}) with confidence {score}'
-                    )
+                    # self.get_logger().info(
+                    #     f'Object detected at ({pxc},{pyc}) with confidence {score}'
+                    # )
 
                     label = f'{self.model_classes[0]} {score:.2f}'  # Label with confidence score
                     cv2.putText(
@@ -255,19 +255,6 @@ def main(args=None):
         vision_node.target.release()
         vision_node.destroy_node()
         rclpy.shutdown()
-    # command = [
-    #     'ffmpeg',
-    #     '-y',  # Overwrites the output file if it already exists
-    #     '-i',
-    #     'videos/output_video.avi',  # Input file
-    #     '-vcodec',
-    #     'libx264',  # H.264 video codec for compression
-    #     '-crf',
-    #     '28',  # Compression level (higher = smaller file)
-    #     'videos/output.mp4',  # Output file
-    # ]
-    # subprocess.run(command, check=True)
-    # os.remove('videos/output_video.avi')
 
 
 if __name__ == '__main__':
