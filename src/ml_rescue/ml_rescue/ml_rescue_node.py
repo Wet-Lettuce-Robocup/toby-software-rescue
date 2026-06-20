@@ -199,7 +199,7 @@ class TRescue(LifecycleNode):
             angle = math.atan((center_x - (self.dw / 2)) / distance)
 
             self.get_logger().info(f'Distance to ball: {distance}\nAngle to ball: {angle}')
-            data.append([class_id, confidence, distance, angle])
+            data.append([class_id, confidence, distance, angle, center_x])
             self.data = data
 
     def set_inference(self, enabled: bool):
