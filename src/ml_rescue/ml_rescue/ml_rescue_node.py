@@ -236,6 +236,11 @@ class TRescue(LifecycleNode):
     def on_activate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Activating rescue node')
         self.isActive = True
+
+        self.current_state = States.ENTER
+        self.state_started = False
+        self.data = None
+
         return super().on_activate(state)
 
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
@@ -243,7 +248,7 @@ class TRescue(LifecycleNode):
         self.set_inference(False)
         self.isActive = False
 
-        return super().on_activate(state)
+        return super().on_deactivate(state)
 
     def on_cleanup(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Cleaning up rescue node')
@@ -294,6 +299,7 @@ class TRescue(LifecycleNode):
             # Move towards ball
             if not self.state_started:
                 self.get_logger().info('Targetting a ball')
+                self.state_started = True
 
                 self.transition_to_state(States.GRAB_BALL)
 
@@ -311,6 +317,7 @@ class TRescue(LifecycleNode):
             # Move towards dropzone
             if not self.state_started:
                 self.get_logger().info('Targetting evacuation point')
+                self.state_started = True
 
                 self.set_inference(True)
 
@@ -320,6 +327,7 @@ class TRescue(LifecycleNode):
             # Release balls
             if not self.state_started:
                 self.get_logger().info('Releasing balls')
+                self.state_started = True
 
                 self.set_inference(False)
 
@@ -329,6 +337,7 @@ class TRescue(LifecycleNode):
             # Locate exit and turn rescue code off
             if not self.state_started:
                 self.get_logger().info('Exiting rescue.....')
+                self.state_started = True
 
                 self.set_inference(True)
                 if self.isRobot:
