@@ -1,7 +1,9 @@
 import os
 import time
+import yaml
 
 import cv2
+import numpy as np
 from picamera2 import Picamera2
 from picamera2.utils import Transform
 
@@ -30,12 +32,32 @@ class ImageToModel:
     def __init__(self):
         self.image_count = 0
 
+        with open('ost.txt', 'r') as f:
+            calib_data = yaml.safe_load(f)
+        raw_matrix = calib_data['camera_matrix']
+
+        raw_dist = calib_data['distortion_coefficients']
+
+        self.camera_matrix = np.array(raw_matrix['data'], dtype=np.float32).reshape(
+            raw_matrix['rows'], raw_matrix['cols']
+        )
+        self.distortion_coefficients = np.array(raw_dist['data'], dtype=np.float32).reshape(
+            raw_dist['rows'], raw_dist['cols']
+        )
+
     def start_image_stream(self):
         run = False
         while True:
             frame = picam2.capture_array()
             if frame is not None:
-                cv2.imshow('Camera', frame)
+                undistorted_frame = cv2.undistort(
+                    frame,
+                    self.camera_matrix,
+                    self.distortion_coefficients,
+                    None,
+                    self.camera_matrix,
+                )
+                cv2.imshow('Camera', undistorted_frame)
                 wait = cv2.waitKey(1) & 0xFF  # Wait for 100ms
                 if wait == ord(' '):  # ESC key to exit
                     run = True
@@ -45,7 +67,14 @@ class ImageToModel:
             while run:
                 frame = picam2.capture_array()
                 if frame is not None:
-                    cv2.imshow('Camera', frame)
+                    undistorted_frame = cv2.undistort(
+                        frame,
+                        self.camera_matrix,
+                        self.distortion_coefficients,
+                        None,
+                        self.camera_matrix,
+                    )
+                    cv2.imshow('Camera', undistorted_frame)
                     wait = cv2.waitKey(1) & 0xFF  # Wait for 100ms
                     if wait == ord('q'):  # 'q' to exit
                         print('Exiting image capture')
@@ -57,14 +86,14 @@ class ImageToModel:
                     else:
                         image_path = f'raw_images/image_{self.image_count}.jpg'
 
-                        cv2.imwrite(image_path, frame)
+                        cv2.imwrite(image_path, undistorted_frame)
 
                         print(f'Captured {image_path}')
                         self.image_count += 1
                 else:
                     print('Failed to capture image')
                     print(f'Frame: {frame}')
-                time.sleep(0.5)
+                time.sleep(0.2)
 
 
 robot = ImageToModel()
