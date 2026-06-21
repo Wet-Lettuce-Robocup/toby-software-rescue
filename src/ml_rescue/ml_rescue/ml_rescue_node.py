@@ -232,6 +232,8 @@ class TRescue(LifecycleNode):
             10,
         )
         self.timer = self.create_timer(0.05, self.state_loop)
+        self.timer.cancel()
+
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: State) -> TransitionCallbackReturn:
@@ -242,12 +244,18 @@ class TRescue(LifecycleNode):
         self.state_started = False
         self.data = None
 
+        if self.timer:
+            self.timer.reset()
+
         return super().on_activate(state)
 
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Deactivating rescue node')
         self.set_inference(False)
         self.isActive = False
+
+        if self.timer:
+            self.timer.cancel()
 
         return super().on_deactivate(state)
 

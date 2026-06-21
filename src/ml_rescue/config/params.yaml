@@ -12,3 +12,5 @@
       height: 864
       sensor_mode: '2304:1296'
       orientation: 180
+      camera_info_url: "file:///root/.ros/camera_info/ost.yaml"
+      # camera_name: 'imx708_wide__base_axi_pcie_1000120000_rp1_i2c_88000_imx708_1a_1536x864_2304x1296_RGGB_PISP_COMP1_RAW'
