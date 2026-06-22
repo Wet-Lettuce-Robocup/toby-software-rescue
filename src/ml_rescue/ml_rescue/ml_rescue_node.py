@@ -152,12 +152,12 @@ class TRescue(LifecycleNode):
 
         self.dw = 1536
         self.dh = 864
-        self.f_length = 2.75  # mm aka F2.2
-        self.ball_radius = 50  # mm
-        self.fx = (self.dw * self.f_length) / 6.54
-        self.fy = (self.dh * self.f_length) / 3.63
-        self.f_pixels = (self.fx + self.fy) / 2
-        self.distance_factor = self.f_pixels * self.ball_radius
+        # self.f_length = 2.75
+        self.ball_radius = 0.05  # m
+        self.fx = 683.31285  # (self.dw * self.f_length) / 6.54
+        self.fy = 683.10689  # (self.dh * self.f_length) / 3.63
+        self.cx = 764.89803
+        self.cy = 408.4118
 
         self.ball_dist = 0
         self.obstacle: list = []
@@ -195,8 +195,10 @@ class TRescue(LifecycleNode):
                 f'w={width:.1f}, h={height:.1f}, conf={confidence:.2f}'
             )
 
-            distance = self.distance_factor / ((width + height) / 2)
-            angle = math.atan((center_x - (self.dw / 2)) / distance)
+            average_dimension = (width + height) / 2
+
+            distance = (self.fx * self.ball_radius) / average_dimension
+            angle = math.atan((center_x - self.cx) / self.fx)
 
             self.get_logger().info(f'Distance to ball: {distance}, Angle to ball: {angle}')
             data.append([class_id, confidence, distance, angle, center_x])
