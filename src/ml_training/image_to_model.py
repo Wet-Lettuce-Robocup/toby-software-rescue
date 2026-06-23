@@ -7,13 +7,16 @@ import numpy as np
 from picamera2 import Picamera2
 from picamera2.utils import Transform
 
+FPS = 10
+SPF = 1 / FPS
+
 os.makedirs('raw_images', exist_ok=True)
 picam2 = Picamera2()
 picam2.configure(
     picam2.create_video_configuration(
         sensor={'output_size': (2304, 1296)},  # 16:9 aspect ratio
         main={'format': 'RGB888', 'size': (1536, 864)},  # Lower resolution for better performance
-        controls={'FrameRate': 30},
+        controls={'FrameRate': FPS},
         transform=Transform(hflip=True, vflip=True),  # 180 degree rotation
     )
 )
@@ -65,6 +68,7 @@ class ImageToModel:
                     return False
 
             while run:
+                start_time = time.time()
                 frame = picam2.capture_array()
                 if frame is not None:
                     undistorted_frame = cv2.undistort(
@@ -93,7 +97,9 @@ class ImageToModel:
                 else:
                     print('Failed to capture image')
                     print(f'Frame: {frame}')
-                time.sleep(0.2)
+                elapsed_time = time.time() - start_time
+                if elapsed_time < SPF:
+                    time.sleep(SPF - elapsed_time)
 
 
 robot = ImageToModel()
