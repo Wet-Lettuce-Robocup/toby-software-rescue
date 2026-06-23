@@ -32,7 +32,7 @@ class ImageToModel:
     def __init__(self):
         self.image_count = 0
 
-        with open('ost.txt', 'r') as f:
+        with open('ost.yaml', 'r') as f:
             calib_data = yaml.safe_load(f)
         raw_matrix = calib_data['camera_matrix']
 
