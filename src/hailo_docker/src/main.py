@@ -17,13 +17,14 @@ END_NODES = [
 ]
 
 process_config_one = './src/nms_config_1_class.json'
+process_config_two = './src/nms_config_2_class.json'
 process_config_six = './src/nms_config_6_class.json'
 
 alls_script = (
     'normalization1 = normalization([0.0, 0.0, 0.0], [255.0, 255.0, 255.0])\n'
     'model_optimization_flavor(optimization_level=2, compression_level=1)\n'
-    f'nms_postprocess("{process_config_one}", meta_arch=yolov8, engine=nn_core)\n'
-     'performance_param(compiler_optimization_level=max)\n'
+    f'nms_postprocess("{process_config_two}", meta_arch=yolov8, engine=nn_core)\n'
+    'performance_param(compiler_optimization_level=max)\n'
 )
 
 
@@ -133,6 +134,7 @@ def load_calibration_dataset(
     print(f'Loaded {calib_dataset.shape[0]} calibration images of size {target_size}.')
     return calib_dataset
 
+
 def only_compile(net_name, hw_arch, har):
     runner = ClientRunner(hw_arch=hw_arch, har=har)
 
@@ -141,12 +143,13 @@ def only_compile(net_name, hw_arch, har):
     with open(output_hef_path, 'wb') as f:
         f.write(hef)
 
+
 def main():
     onnx_path = './models/best.onnx'
     calib_folder = './calibration_images'
     net_name = 'robotyolov8s'
     hw_arch = 'hailo10h'
-    #only_compile(net_name=net_name, hw_arch=hw_arch, har='./models/robotyolov8s_quantised.har')
+    # only_compile(net_name=net_name, hw_arch=hw_arch, har='./models/robotyolov8s_quantised.har')
     parse_onnx(onnx_path, calib_folder, net_name, hw_arch)
 
 

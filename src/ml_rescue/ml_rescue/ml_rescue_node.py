@@ -127,7 +127,7 @@ class TRescue(LifecycleNode):
             return response
 
         for i in data:
-            if 'ball' in i[0]:
+            if 'silver' in i[0] or 'black' in i[0]:
                 all_publish_data.append(i)
 
         if not all_publish_data:
