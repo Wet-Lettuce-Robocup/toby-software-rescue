@@ -127,21 +127,26 @@ class TRescue(LifecycleNode):
             return response
 
         for i in data:
-            if 'silver' in i[0] or 'black' in i[0]:
+            if 'silver' in i[0]:  # Append silver balls first
+                all_publish_data.append(i)
+
+        for i in data:
+            if 'black' in i[0]:  # Ensures black balls are sent after silver balls
                 all_publish_data.append(i)
 
         if not all_publish_data:
             response.success = False
             return response
 
-        valid_publish_data = all_publish_data[0]
+        for i in all_publish_data:
+            valid_publish_data = all_publish_data[i]
 
-        response.type = valid_publish_data[0]
-        response.confidence = valid_publish_data[1]
-        response.distance = valid_publish_data[2]
-        response.bearing = valid_publish_data[3]
-        response.cx = valid_publish_data[4]
-        response.success = True
+            response.type = valid_publish_data[0]
+            response.confidence = valid_publish_data[1]
+            response.distance = valid_publish_data[2]
+            response.bearing = valid_publish_data[3]
+            response.cx = valid_publish_data[4]
+            response.success = True
 
         return response
 
