@@ -7,7 +7,7 @@ import numpy as np
 from picamera2 import Picamera2
 from picamera2.utils import Transform
 
-FPS = 10
+FPS = 2
 SPF = 1 / FPS
 
 os.makedirs('raw_images', exist_ok=True)
@@ -16,7 +16,7 @@ picam2.configure(
     picam2.create_video_configuration(
         sensor={'output_size': (2304, 1296)},  # 16:9 aspect ratio
         main={'format': 'RGB888', 'size': (1536, 864)},  # Lower resolution for better performance
-        controls={'FrameRate': FPS},
+        controls={'FrameRate': 10},
         transform=Transform(hflip=True, vflip=True),  # 180 degree rotation
     )
 )
