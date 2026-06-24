@@ -71,7 +71,7 @@ class TRescue(LifecycleNode):
 
     def inference_callback(self, msg):
         if len(msg.detections) == 0:
-            self.get_logger().warn('Detection subscriber fail')
+            self.get_logger().warn('Nothing detected')
             return
 
         data = []
@@ -147,6 +147,8 @@ class TRescue(LifecycleNode):
             response.bearing = valid_publish_data[3]
             response.cx = valid_publish_data[4]
             response.success = True
+
+        self.get_logger().info(f'Publishing to bain the following: {all_publish_data}')
 
         return response
 

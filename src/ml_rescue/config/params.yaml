@@ -1,4 +1,4 @@
-/ml_vision_node:
+ml_vision_node:
   ros__parameters:
     ml_rescue_debug: true
 

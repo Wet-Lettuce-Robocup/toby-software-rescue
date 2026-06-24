@@ -42,12 +42,6 @@ class VisionNode(Node):
             self.image_callback,
             10,
         )
-        self.test_image_sub = self.create_subscription(
-            Image,
-            'test_image',
-            self.test_display_callback,
-            10,
-        )
         self.inference_pub = self.create_publisher(Detection2DArray, 'inference_stream', 10)
         self.rescue_active_srv = self.create_service(
             EnableInference, 'enable_inference', self.rescue_active_callback
@@ -206,7 +200,8 @@ class VisionNode(Node):
 
         except queue.Empty:
             pass
-        if detection_msg is not None:
+        if detection_msg is not None and len(detection_msg) > 0:
+            self.get_logger().info('- - - Publishing detections - - - ')
             self.inference_pub.publish(detection_msg)
 
     def _inference_callback(self, completion_info, output_buffer=None, display_frame=None):
@@ -233,14 +228,6 @@ class VisionNode(Node):
         # Push both the frame and its matching detections to the main thread
         if not self.results_queue.full():
             self.results_queue.put_nowait((display_frame, detections))
-
-    def test_display_callback(self, msg):
-        try:
-            self.out.write()
-            self.get_logger().info(f'Displayed test image: {msg}')
-        except Exception as e:
-            self.get_logger().error(f'Error displaying test image: {e}')
-            raise
 
 
 def main(args=None):
