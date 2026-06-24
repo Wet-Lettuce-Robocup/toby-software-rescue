@@ -161,7 +161,7 @@ class TRescue(LifecycleNode):
         return response
 
     def on_configure(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info('Configuring rescue node')
+        self.get_logger().info('Configuring ml_rescue node...')
         self.pub = self.create_lifecycle_publisher(String, 'rescue_data', 10)
         self.vision_sub = self.create_subscription(
             Detection2DArray,
@@ -175,7 +175,7 @@ class TRescue(LifecycleNode):
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info('Activating rescue node')
+        self.get_logger().info('Activating ml_rescue node...')
         self.isActive = True
 
         self.current_state = States.ENTER
@@ -188,7 +188,7 @@ class TRescue(LifecycleNode):
         return super().on_activate(state)
 
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info('Deactivating rescue node')
+        self.get_logger().info('Deactivating ml_rescue node...')
         self.set_inference(False)
         self.isActive = False
 
@@ -198,7 +198,7 @@ class TRescue(LifecycleNode):
         return super().on_deactivate(state)
 
     def on_cleanup(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info('Cleaning up rescue node')
+        self.get_logger().info('Cleaning up ml_rescue node...')
         if self.timer is not None:
             self.destroy_timer(self.timer)
         if self.pub is not None:
@@ -213,7 +213,7 @@ class TRescue(LifecycleNode):
         return TransitionCallbackReturn.SUCCESS
 
     def on_shutdown(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info('Shutting down rescue node')
+        self.get_logger().info('Shutting down ml_rescue node')
         return TransitionCallbackReturn.SUCCESS
 
     def state_loop(self):
