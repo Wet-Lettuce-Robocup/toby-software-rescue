@@ -24,5 +24,12 @@ def generate_launch_description():
         output='screen',
         parameters=[config],
     )
-
-    return LaunchDescription([lifecycle, vision])
+    front_camera = Node(
+        package='camera_ros',
+        executable='camera_node',
+        name='camera_node',
+        namespace='front_camera',
+        output='screen',
+        parameters=[config],
+    )
+    return LaunchDescription([lifecycle, vision, front_camera])
