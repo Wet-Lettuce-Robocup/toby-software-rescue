@@ -44,15 +44,13 @@ class VisionNode(Node):
         )
         self.test_image_sub = self.create_subscription(
             Image,
-            '/ml_rescue/test_image',
+            'test_image',
             self.test_display_callback,
             10,
         )
-        self.inference_pub = self.create_publisher(
-            Detection2DArray, '/ml_rescue/inference_stream', 10
-        )
+        self.inference_pub = self.create_publisher(Detection2DArray, 'inference_stream', 10)
         self.rescue_active_srv = self.create_service(
-            EnableInference, '/ml_rescue/enable_inference', self.rescue_active_callback
+            EnableInference, 'enable_inference', self.rescue_active_callback
         )
         self.isActive = False
 

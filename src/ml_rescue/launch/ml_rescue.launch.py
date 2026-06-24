@@ -4,6 +4,8 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
+NAMESPACE = '/ml_rescue'
+
 
 def generate_launch_description():
     config = os.path.join(get_package_share_directory('ml_rescue'), 'config', 'params.yaml')
@@ -12,7 +14,7 @@ def generate_launch_description():
         package='ml_rescue',
         executable='ml_rescue_node',
         name='ml_rescue_node',
-        namespace='',
+        namespace=NAMESPACE,
         output='screen',
         parameters=[config],
     )
@@ -20,7 +22,7 @@ def generate_launch_description():
         package='ml_rescue',
         executable='ml_vision_node',
         name='ml_vision_node',
-        namespace='',
+        namespace=NAMESPACE,
         output='screen',
         parameters=[config],
     )

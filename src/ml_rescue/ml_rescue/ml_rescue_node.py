@@ -46,12 +46,12 @@ class TRescue(LifecycleNode):
         self.vision_sub: Subscription | None = None
 
         self.rescue_state_srv = self.create_service(
-            SetRescueState, '/set_rescue_state', self.set_rescue_state_callback
+            SetRescueState, 'set_rescue_state', self.set_rescue_state_callback
         )
         self.inference_srv = self.create_service(
-            SendInference, '/ml_rescue/detections', self.send_inference_data
+            SendInference, 'detections', self.send_inference_data
         )
-        self.enable_inference = self.create_client(EnableInference, '/ml_rescue/enable_inference')
+        self.enable_inference = self.create_client(EnableInference, 'enable_inference')
         # self.robot = Movement(self)
 
         self.dw = 1536
@@ -165,7 +165,7 @@ class TRescue(LifecycleNode):
         self.pub = self.create_lifecycle_publisher(String, 'rescue_data', 10)
         self.vision_sub = self.create_subscription(
             Detection2DArray,
-            '/ml_rescue/inference_stream',
+            'inference_stream',
             self.inference_callback,
             10,
         )
