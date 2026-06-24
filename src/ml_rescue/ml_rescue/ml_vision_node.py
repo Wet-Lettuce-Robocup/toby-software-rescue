@@ -31,7 +31,7 @@ class VisionNode(Node):
         super().__init__('vision_node')
 
         self.declare_parameter('raw_image_topic', '/front_camera/camera_node/image_raw')
-        self.declare_parameter('ml_rescue_debug', False)
+        self.declare_parameter('ml_rescue_debug', True)
 
         self.debug = self.get_parameter('ml_rescue_debug').value
         self.get_logger().info(f'Vision node debug status: {self.debug}')
@@ -200,8 +200,8 @@ class VisionNode(Node):
 
         except queue.Empty:
             pass
-        if detection_msg is not None and len(detection_msg) > 0:
-            self.get_logger().info('- - - Publishing detections - - - ')
+        if detection_msg is not None or len(detection_msg.detections) > 0:
+            # self.get_logger().info('- - - Publishing detections - - -')
             self.inference_pub.publish(detection_msg)
 
     def _inference_callback(self, completion_info, output_buffer=None, display_frame=None):

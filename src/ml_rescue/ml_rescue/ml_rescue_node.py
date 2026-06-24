@@ -48,9 +48,7 @@ class TRescue(LifecycleNode):
         self.rescue_state_srv = self.create_service(
             SetRescueState, 'set_rescue_state', self.set_rescue_state_callback
         )
-        self.inference_srv = self.create_service(
-            SendInference, 'detections', self.send_inference_data
-        )
+        self.inference_srv = None
         self.enable_inference = self.create_client(EnableInference, 'enable_inference')
         # self.robot = Movement(self)
 
@@ -94,17 +92,17 @@ class TRescue(LifecycleNode):
             width = detection.bbox.size_x
             height = detection.bbox.size_y
 
-            self.get_logger().info(
-                f'Ball: x={center_x:.1f}, y={center_y:.1f}, '
-                f'w={width:.1f}, h={height:.1f}, conf={confidence:.2f}'
-            )
+            # self.get_logger().info(
+            #     f'Ball: x={center_x:.1f}, y={center_y:.1f}, '
+            #     f'w={width:.1f}, h={height:.1f}, conf={confidence:.2f}'
+            # )
 
             average_dimension = (width + height) / 2
 
             distance = (self.fx * self.ball_radius) / average_dimension
             angle = math.atan((center_x - self.cx) / self.fx)
 
-            self.get_logger().info(f'Distance to ball: {distance}, Angle to ball: {angle}')
+            self.get_logger().info(f'Distance to ball: {distance:.2f}, Angle to ball: {angle:.2f}')
             data.append([class_id, confidence, distance, angle, center_x])
 
         self.data = data
@@ -124,6 +122,9 @@ class TRescue(LifecycleNode):
 
         if request.message != 'whereball' or data is None or len(data) == 0:
             response.success = False
+            self.get_logger().info(
+                'you landon the request is not valid or I do not have any data for you'
+            )
             return response
 
         for i in data:
@@ -170,6 +171,9 @@ class TRescue(LifecycleNode):
             'inference_stream',
             self.inference_callback,
             10,
+        )
+        self.inference_srv = self.create_service(
+            SendInference, 'detections', self.send_inference_data
         )
         self.timer = self.create_timer(0.05, self.state_loop)
         self.timer.cancel()
