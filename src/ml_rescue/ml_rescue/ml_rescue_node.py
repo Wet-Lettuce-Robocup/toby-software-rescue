@@ -151,6 +151,7 @@ class TRescue(LifecycleNode):
                 self.state_started = True
 
                 scanning = True
+                self.data = []
 
                 self.set_inference(True)
 
@@ -279,11 +280,14 @@ class TRescue(LifecycleNode):
         data = self.data
         all_publish_data = []
 
-        if request.message != 'whereball' or data is None or len(data) == 0:
+        if request.message != 'whereball':
             response.success = False
-            self.get_logger().info(
-                'you landon the request is not valid or I do not have any data for you'
-            )
+            self.get_logger().warn('The request is not valid')
+            return response
+
+        if data is None or len(data) == 0:
+            response.success = False
+            self.get_logger().warn('I do not have any data for you')
             return response
 
         for i in data:
