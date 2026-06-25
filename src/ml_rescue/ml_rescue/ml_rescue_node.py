@@ -87,7 +87,7 @@ class TRescue(LifecycleNode):
                 continue
 
             center_x = detection.bbox.center.position.x
-            center_y = detection.bbox.center.position.y
+            # center_y = detection.bbox.center.position.y
 
             width = detection.bbox.size_x
             height = detection.bbox.size_y

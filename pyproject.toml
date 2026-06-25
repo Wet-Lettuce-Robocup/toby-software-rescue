@@ -3,6 +3,3 @@ quote-style = "single"
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
-
-[tool.mypy]
-exclude = '.*\.launch\.py$'
