@@ -205,24 +205,26 @@ class VisionNode(Node):
             evac_image = cv2.GaussianBlur(evac_image, (5, 5), 0)
 
             green_evac_image = cv2.inRange(evac_image, lower_green, upper_green)
-            contours, heirarchy = cv2.findContours(
+            g_contours, g_heirarchy = cv2.findContours(
                 green_evac_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
             )
-            for contour in contours:
+            for contour in g_contours:
                 self.get_logger().info(f'Contour with area {cv2.contourArea(contour)}')
                 if cv2.contourArea(contour) > min_tray_size:
-                    pass
+                    self.get_logger().info(f'Contour with this data: {contour}')
+                cv2.drawContours(vis_frame, g_contours, -1, (255, 0, 0), 3)
 
             red_evac_image = cv2.inRange(evac_image, lower_red, upper_red)
-            contours, heirarchy = cv2.findContours(
+            r_contours, r_heirarchy = cv2.findContours(
                 red_evac_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
             )
-            for contour in contours:
+            for contour in r_contours:
                 self.get_logger().info(f'Contour with area {cv2.contourArea(contour)}')
                 if cv2.contourArea(contour) > min_tray_size:
-                    pass
+                    self.get_logger().info(f'Contour with this data: {contour}')
+                cv2.drawContours(vis_frame, r_contours, -1, (255, 0, 0), 3)
 
-            # Show the rendered frame on the screen
+            # Render frame to video
             if self.debug:
                 self.out.write(vis_frame)
 
