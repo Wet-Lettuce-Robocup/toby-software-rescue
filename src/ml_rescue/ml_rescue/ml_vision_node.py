@@ -166,7 +166,7 @@ class VisionNode(Node):
                 detection.bbox.size_y = float(py2 - py1)
 
                 hypothesis = ObjectHypothesisWithPose()
-                hypothesis.hypothesis.class_id = self.model_classes[0]
+                hypothesis.hypothesis.class_id = 'silver'
                 hypothesis.hypothesis.score = float(score)
 
                 detection.results.append(hypothesis)

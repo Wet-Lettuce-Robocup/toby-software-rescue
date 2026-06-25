@@ -232,7 +232,7 @@ class TRescue(LifecycleNode):
 
     def inference_callback(self, msg):
         if len(msg.detections) == 0:
-            self.get_logger().warn('Nothing detected')
+            # self.get_logger().warn('Nothing detected')
             return
 
         data = []
@@ -246,7 +246,7 @@ class TRescue(LifecycleNode):
             class_id = result.hypothesis.class_id
             confidence = result.hypothesis.score
 
-            if class_id != 'ball':
+            if class_id not in ['ball', 'silver', 'black']:
                 self.get_logger().warn(f'Class id is not ball: {class_id}')
                 continue
 
@@ -285,8 +285,6 @@ class TRescue(LifecycleNode):
         data = self.data
         all_publish_data = []
 
-        self.get_logger().info('Hi I have gotten a request I am awake now')
-
         if request.message != 'whereball':
             response.success = False
             self.get_logger().warn('The request is not valid')
@@ -297,9 +295,8 @@ class TRescue(LifecycleNode):
             self.get_logger().warn('I do not have any data for you')
             return response
 
-        self.get_logger().info('Valid request, considering my response...')
-
         for i in data:
+            self.get_logger().info(f'data: {i}')
             if 'silver' in i[0] or 'ball' in i[0]:  # Append silver balls first
                 all_publish_data.append(i)
                 self.get_logger().info('Ball detected, sending you a ball')
@@ -323,7 +320,7 @@ class TRescue(LifecycleNode):
             response.cx.append(valid_publish_data[4])
             response.success = True
 
-        self.get_logger().info(f'Publishing to bain the following: {all_publish_data}')
+        self.get_logger().info(f'Publishing the following: {all_publish_data}')
 
         return response
 
