@@ -163,7 +163,8 @@ class TRescue(LifecycleNode):
                         # stop spinning
                         first_object = self.data[0]
                         self.get_logger().info(
-                            f'First object detected is of type: {first_object[0]}, and there were {len(self.data)} objects detected.'
+                            f'First object detected is of type: {first_object[0]}, '
+                            f'and there were {len(self.data)} objects detected.'
                         )
 
                 self.set_inference(False)
