@@ -151,28 +151,28 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Enabling inference and scanning for ball')
                 self.state_started = True
 
-                scanning = True
+                # scanning = True
                 self.data = []
 
                 self.set_inference(True)
 
-                while scanning:
-                    if self.data is None or self.data == []:
-                        # Spin robot a little bit
-                        time.sleep(0.1)
+                # while scanning:
+                #     if self.data is None or self.data == []:
+                #         # Spin robot a little bit
+                #         time.sleep(0.1)
 
-                    else:
-                        # stop spinning
-                        first_object = self.data[0]
-                        self.get_logger().info(f'data is {self.data}')
-                        self.get_logger().info(
-                            f'First object detected is of type: {first_object[0]}, '
-                            f'and there were {len(self.data)} objects detected.'
-                        )
+                #     else:
+                #         # stop spinning
+                #         first_object = self.data[0]
+                #         self.get_logger().info(f'data is {self.data}')
+                #         self.get_logger().info(
+                #             f'First object detected is of type: {first_object[0]}, '
+                #             f'and there were {len(self.data)} objects detected.'
+                #         )
 
-                self.set_inference(False)
+                # self.set_inference(False)
 
-                self.transition_to_state(States.TARGET_BALL)
+                # self.transition_to_state(States.TARGET_BALL)
 
         elif self.current_state == States.TARGET_BALL:
             # Move towards ball
@@ -313,14 +313,14 @@ class TRescue(LifecycleNode):
             response.success = False
             return response
 
-        for i in all_publish_data:
+        for i in range(len(all_publish_data)):
             valid_publish_data = all_publish_data[i]
 
-            response.type = valid_publish_data[0]
-            response.confidence = valid_publish_data[1]
-            response.distance = valid_publish_data[2]
-            response.bearing = valid_publish_data[3]
-            response.cx = valid_publish_data[4]
+            response.type.append(valid_publish_data[0])
+            response.confidence.append(valid_publish_data[1])
+            response.distance.append(valid_publish_data[2])
+            response.bearing.append(valid_publish_data[3])
+            response.cx.append(valid_publish_data[4])
             response.success = True
 
         self.get_logger().info(f'Publishing to bain the following: {all_publish_data}')
