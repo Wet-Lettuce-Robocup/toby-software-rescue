@@ -287,7 +287,7 @@ class TRescue(LifecycleNode):
             return response
 
         for i in data:
-            if 'silver' in i[0]:  # Append silver balls first
+            if 'silver' in i[0] or 'ball' in i[0]:  # Append silver balls first
                 all_publish_data.append(i)
 
         for i in data:
