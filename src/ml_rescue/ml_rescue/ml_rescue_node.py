@@ -61,11 +61,170 @@ class TRescue(LifecycleNode):
         self.cx = 764.89803
         self.cy = 408.4118
 
-        self.ball_dist = 0
         self.obstacle: list = []
+        self.target_distance = 0
+        self.target_angle = 0
 
         self.data = None
         self.balls_found = 0
+
+    def on_configure(self, state: State) -> TransitionCallbackReturn:
+        self.get_logger().info('Configuring ml_rescue node...')
+        self.pub = self.create_lifecycle_publisher(String, 'rescue_data', 10)
+        self.vision_sub = self.create_subscription(
+            Detection2DArray,
+            'inference_stream',
+            self.inference_callback,
+            10,
+        )
+        self.inference_srv = self.create_service(
+            SendInference, 'detections', self.send_inference_data
+        )
+        self.timer = self.create_timer(0.05, self.state_loop)
+        self.timer.cancel()
+
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_activate(self, state: State) -> TransitionCallbackReturn:
+        self.get_logger().info('Activating ml_rescue node...')
+        self.isActive = True
+
+        self.current_state = States.ENTER
+        self.state_started = False
+        self.data = None
+
+        if self.timer:
+            self.timer.reset()
+
+        return super().on_activate(state)
+
+    def on_deactivate(self, state: State) -> TransitionCallbackReturn:
+        self.get_logger().info('Deactivating ml_rescue node...')
+        self.set_inference(False)
+        self.isActive = False
+
+        if self.timer:
+            self.timer.cancel()
+
+        return super().on_deactivate(state)
+
+    def on_cleanup(self, state: State) -> TransitionCallbackReturn:
+        self.get_logger().info('Cleaning up ml_rescue node...')
+        if self.timer is not None:
+            self.destroy_timer(self.timer)
+        if self.pub is not None:
+            self.destroy_publisher(self.pub)
+        if self.vision_sub is not None:
+            self.destroy_subscriber(self.vision_sub)
+
+        self.timer = None
+        self.pub = None
+        self.vision_sub = None
+
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_shutdown(self, state: State) -> TransitionCallbackReturn:
+        self.get_logger().info('Shutting down ml_rescue node')
+        return TransitionCallbackReturn.SUCCESS
+
+    def state_loop(self):
+        if not self.isActive:
+            return
+
+        if self.current_state == States.ENTER:
+            # Enter the rescue zone
+            if not self.state_started:
+                self.get_logger().info('Entering rescue zone')
+                self.state_started = True
+
+                # move into centre of rescue zone
+                if self.isRobot:
+                    # self.robot.drive(0.2)
+                    pass
+
+                self.transition_to_state(States.SCAN)
+
+        elif self.current_state == States.SCAN:
+            # Prescan for all objects OR one ball at a time
+            if not self.state_started:
+                self.get_logger().info('Enabling inference and scanning for ball')
+                self.state_started = True
+
+                scanning = True
+
+                self.set_inference(True)
+
+                while scanning:
+                    if self.data is None:
+                        # Spin robot a little bit
+                        pass
+
+                    else:
+                        # stop spinning
+                        first_object = self.data[0]
+                        self.get_logger().info(
+                            f'First object detected is of type: {first_object[0]}, and there were {len(self.data)} objects detected.'
+                        )
+
+                self.set_inference(False)
+
+                self.transition_to_state(States.TARGET_BALL)
+
+        elif self.current_state == States.TARGET_BALL:
+            # Move towards ball
+            if not self.state_started:
+                self.get_logger().info('Targetting a ball')
+                self.state_started = True
+
+                self.transition_to_state(States.GRAB_BALL)
+
+        elif self.current_state == States.GRAB_BALL:
+            # Pick up ball
+            if not self.state_started:
+                self.get_logger().info('Grabbing ball')
+                self.state_started = True
+
+                self.set_inference(False)
+
+                self.transition_to_state(States.TARGET_DROPZONE)
+
+        elif self.current_state == States.TARGET_DROPZONE:
+            # Move towards dropzone
+            if not self.state_started:
+                self.get_logger().info('Targetting evacuation point')
+                self.state_started = True
+
+                self.set_inference(True)
+
+                self.transition_to_state(States.DUMP_DROPZONE)
+
+        elif self.current_state == States.DUMP_DROPZONE:
+            # Release balls
+            if not self.state_started:
+                self.get_logger().info('Releasing balls')
+                self.state_started = True
+
+                self.set_inference(False)
+
+                self.transition_to_state(States.EXIT)
+
+        elif self.current_state == States.EXIT:
+            # Locate exit and turn rescue code off
+            if not self.state_started:
+                self.get_logger().info('Exiting rescue.....')
+                self.state_started = True
+
+                self.set_inference(True)
+                if self.isRobot:
+                    # self.robot.drive(0.5)
+                    pass
+                self.set_inference(False)
+        else:
+            self.get_logger().warn('Invalid rescue state detected')
+
+    def transition_to_state(self, new_state: States):
+        self.current_state = new_state
+        self.state_started = False
 
     def inference_callback(self, msg):
         if len(msg.detections) == 0:
@@ -162,148 +321,6 @@ class TRescue(LifecycleNode):
             response.success = False
             response.message = f'Invalid state: {request.state}'
         return response
-
-    def on_configure(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info('Configuring ml_rescue node...')
-        self.pub = self.create_lifecycle_publisher(String, 'rescue_data', 10)
-        self.vision_sub = self.create_subscription(
-            Detection2DArray,
-            'inference_stream',
-            self.inference_callback,
-            10,
-        )
-        self.inference_srv = self.create_service(
-            SendInference, 'detections', self.send_inference_data
-        )
-        self.timer = self.create_timer(0.05, self.state_loop)
-        self.timer.cancel()
-
-        return TransitionCallbackReturn.SUCCESS
-
-    def on_activate(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info('Activating ml_rescue node...')
-        self.isActive = True
-
-        self.current_state = States.ENTER
-        self.state_started = False
-        self.data = None
-
-        if self.timer:
-            self.timer.reset()
-
-        return super().on_activate(state)
-
-    def on_deactivate(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info('Deactivating ml_rescue node...')
-        self.set_inference(False)
-        self.isActive = False
-
-        if self.timer:
-            self.timer.cancel()
-
-        return super().on_deactivate(state)
-
-    def on_cleanup(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info('Cleaning up ml_rescue node...')
-        if self.timer is not None:
-            self.destroy_timer(self.timer)
-        if self.pub is not None:
-            self.destroy_publisher(self.pub)
-        if self.vision_sub is not None:
-            self.destroy_subscriber(self.vision_sub)
-
-        self.timer = None
-        self.pub = None
-        self.vision_sub = None
-
-        return TransitionCallbackReturn.SUCCESS
-
-    def on_shutdown(self, state: State) -> TransitionCallbackReturn:
-        self.get_logger().info('Shutting down ml_rescue node')
-        return TransitionCallbackReturn.SUCCESS
-
-    def state_loop(self):
-        if not self.isActive:
-            return
-
-        if self.current_state == States.ENTER:
-            # Enter the rescue zone
-            if not self.state_started:
-                self.get_logger().info('Entering rescue zone')
-                self.state_started = True
-
-                # move into centre of rescue zone
-                if self.isRobot:
-                    # self.robot.drive(0.2)
-                    pass
-
-                self.transition_to_state(States.SCAN)
-
-        elif self.current_state == States.SCAN:
-            # Prescan for all objects OR one ball at a time
-            if not self.state_started:
-                self.get_logger().info('Enabling inference and scanning for ball')
-                self.state_started = True
-
-                self.set_inference(True)
-                if self.data is not None:
-                    self.transition_to_state(States.TARGET_BALL)
-
-        elif self.current_state == States.TARGET_BALL:
-            # Move towards ball
-            if not self.state_started:
-                self.get_logger().info('Targetting a ball')
-                self.state_started = True
-
-                self.transition_to_state(States.GRAB_BALL)
-
-        elif self.current_state == States.GRAB_BALL:
-            # Pick up ball
-            if not self.state_started:
-                self.get_logger().info('Grabbing ball')
-                self.state_started = True
-
-                self.set_inference(False)
-
-                self.transition_to_state(States.TARGET_DROPZONE)
-
-        elif self.current_state == States.TARGET_DROPZONE:
-            # Move towards dropzone
-            if not self.state_started:
-                self.get_logger().info('Targetting evacuation point')
-                self.state_started = True
-
-                self.set_inference(True)
-
-                self.transition_to_state(States.DUMP_DROPZONE)
-
-        elif self.current_state == States.DUMP_DROPZONE:
-            # Release balls
-            if not self.state_started:
-                self.get_logger().info('Releasing balls')
-                self.state_started = True
-
-                self.set_inference(False)
-
-                self.transition_to_state(States.EXIT)
-
-        elif self.current_state == States.EXIT:
-            # Locate exit and turn rescue code off
-            if not self.state_started:
-                self.get_logger().info('Exiting rescue.....')
-                self.state_started = True
-
-                self.set_inference(True)
-                if self.isRobot:
-                    # self.robot.drive(0.5)
-                    pass
-                self.set_inference(False)
-        else:
-            self.get_logger().warn('Invalid rescue state detected')
-
-    def transition_to_state(self, new_state: States):
-        self.current_state = new_state
-        self.state_started = False
 
 
 def main(args=None):
