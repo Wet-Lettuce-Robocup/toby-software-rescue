@@ -1,5 +1,6 @@
 from enum import Enum
 import math
+import time
 
 import rclpy
 from rclpy.lifecycle import (
@@ -156,15 +157,17 @@ class TRescue(LifecycleNode):
                 self.set_inference(True)
 
                 while scanning:
-                    if self.data is None:
+                    if self.data is None or self.data == []:
                         # Spin robot a little bit
-                        pass
+                        time.sleep(0.1)
 
                     else:
                         # stop spinning
                         first_object = self.data[0]
+                        self.get_logger().info(f'data is {self.data}')
                         self.get_logger().info(
-                            f'First object detected is of type: {first_object[0]}, and there were {len(self.data)} objects detected.'
+                            f'First object detected is of type: {first_object[0]}, '
+                            f'and there were {len(self.data)} objects detected.'
                         )
 
                 self.set_inference(False)
@@ -244,6 +247,7 @@ class TRescue(LifecycleNode):
             confidence = result.hypothesis.score
 
             if class_id != 'ball':
+                self.get_logger().warn(f'Class id is not ball: {class_id}')
                 continue
 
             center_x = detection.bbox.center.position.x
@@ -263,6 +267,7 @@ class TRescue(LifecycleNode):
             angle = math.atan((center_x - self.cx) / self.fx)
 
             self.get_logger().info(f'Distance to ball: {distance:.2f}, Angle to ball: {angle:.2f}')
+
             data.append([class_id, confidence, distance, angle, center_x])
 
         self.data = data
@@ -280,6 +285,8 @@ class TRescue(LifecycleNode):
         data = self.data
         all_publish_data = []
 
+        self.get_logger().info('Hi I have gotten a request I am awake now')
+
         if request.message != 'whereball':
             response.success = False
             self.get_logger().warn('The request is not valid')
@@ -290,15 +297,19 @@ class TRescue(LifecycleNode):
             self.get_logger().warn('I do not have any data for you')
             return response
 
+        self.get_logger().info('Valid request, considering my response...')
+
         for i in data:
             if 'silver' in i[0] or 'ball' in i[0]:  # Append silver balls first
                 all_publish_data.append(i)
+                self.get_logger().info('Ball detected, sending you a ball')
 
         for i in data:
             if 'black' in i[0]:  # Ensures black balls are sent after silver balls
                 all_publish_data.append(i)
 
         if not all_publish_data:
+            self.get_logger().warn('No data to publish!')
             response.success = False
             return response
 
