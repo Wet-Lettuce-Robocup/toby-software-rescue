@@ -194,6 +194,34 @@ class VisionNode(Node):
             if latest_balls is None:
                 self.get_logger().info('no balls detected')
 
+            # Hectic sketchy temporary evac point finder
+            lower_green = np.array([40, 100, 100])
+            upper_green = np.array([80, 255, 255])
+            lower_red = np.array([0, 100, 100])
+            upper_red = np.array([10, 255, 255])
+            min_tray_size = 2000
+
+            evac_image = cv2.cvtColor(raw_frame, cv2.COLOR_BGR2HSV)
+            evac_image = cv2.GaussianBlur(evac_image, (5, 5), 0)
+
+            green_evac_image = cv2.inRange(evac_image, lower_green, upper_green)
+            contours, heirarchy = cv2.findContours(
+                green_evac_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+            )
+            for contour in contours:
+                self.get_logger().info(f'Contour with area {cv2.contourArea(contour)}')
+                if cv2.contourArea(contour) > min_tray_size:
+                    pass
+
+            red_evac_image = cv2.inRange(evac_image, lower_red, upper_red)
+            contours, heirarchy = cv2.findContours(
+                red_evac_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+            )
+            for contour in contours:
+                self.get_logger().info(f'Contour with area {cv2.contourArea(contour)}')
+                if cv2.contourArea(contour) > min_tray_size:
+                    pass
+
             # Show the rendered frame on the screen
             if self.debug:
                 self.out.write(vis_frame)
