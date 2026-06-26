@@ -202,10 +202,10 @@ class VisionNode(Node):
                     detection = Detection2D()
                     detection.header = detection_msg.header
 
-                    detection.bbox.center.position.x = i[1]
-                    detection.bbox.center.position.y = i[2]
-                    detection.bbox.size_x = i[3]
-                    detection.bbox.size_y = i[4]
+                    detection.bbox.center.position.x = float(i[1])
+                    detection.bbox.center.position.y = float(i[2])
+                    detection.bbox.size_x = float(i[3])
+                    detection.bbox.size_y = float(i[4])
 
                     hypothesis = ObjectHypothesisWithPose()
                     hypothesis.hypothesis.class_id = i[0]

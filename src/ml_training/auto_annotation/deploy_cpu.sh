@@ -19,9 +19,18 @@ do
     func_root="$(dirname "$func_config")"
     func_rel_path="$(grealpath --relative-to="$SCRIPT_DIR" "$(dirname "$func_root")")"
 
+    func_name="custom-model-yolov8"
+
     if [ -f "$func_root/Dockerfile" ]; then
         docker build -t "cvat.${func_rel_path//\//.}.base" "$func_root"
     fi
+
+     # CRITICAL CLEANUP: Unlocks Nuclio by removing existing stuck/provisioning versions
+    echo "Cleaning up any old deployments for $func_name..."
+    nuctl delete function custom-model-yolov8 --namespace cvat --platform local
+
+    docker rm -f $(docker ps -a -q --filter name="$func_name") 2>/dev/null || true
+    docker rm -f $(docker ps -a -q --filter name="nuclio-nuclio-$func_name") 2>/dev/null || true
 
     echo "Deploying $func_rel_path function..."
     nuctl deploy --project-name cvat --path "$func_root" \

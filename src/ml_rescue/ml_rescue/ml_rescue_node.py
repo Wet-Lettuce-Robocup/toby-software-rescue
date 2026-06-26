@@ -246,8 +246,8 @@ class TRescue(LifecycleNode):
             class_id = result.hypothesis.class_id
             confidence = result.hypothesis.score
 
-            if class_id not in ['ball', 'silver', 'black']:
-                self.get_logger().warn(f'Class id is not ball: {class_id}')
+            if class_id not in ['ball', 'silver', 'black', 'red', 'green']:
+                self.get_logger().warn(f'Class id is not valid: {class_id}')
                 continue
 
             center_x = detection.bbox.center.position.x
