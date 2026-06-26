@@ -274,6 +274,8 @@ class TRescue(LifecycleNode):
 
     def set_inference(self, enabled: bool):
 
+        self.data = None
+
         request = EnableInference.Request()
         request.enabled = enabled
 
@@ -283,6 +285,7 @@ class TRescue(LifecycleNode):
 
     def send_inference_data(self, request, response):
         data = self.data
+        self.data = None  # Clear self.data once it is sent, otherwise it may send stale data.
         all_publish_data = []
 
         if request.message != 'whereball':
@@ -292,17 +295,21 @@ class TRescue(LifecycleNode):
 
         if data is None or len(data) == 0:
             response.success = False
-            self.get_logger().warn('I do not have any data for you')
+            self.get_logger().warn('No data to send!')
             return response
 
         for i in data:
             self.get_logger().info(f'data: {i}')
             if 'silver' in i[0] or 'ball' in i[0]:  # Append silver balls first
                 all_publish_data.append(i)
-                self.get_logger().info('Ball detected, sending you a ball')
+                # self.get_logger().info('Ball detected, sending you a ball')
 
         for i in data:
             if 'black' in i[0]:  # Ensures black balls are sent after silver balls
+                all_publish_data.append(i)
+
+        for i in data:
+            if 'green' in i[0] or 'red' in i[0]:  # Ensures evac points are sent after all balls
                 all_publish_data.append(i)
 
         if not all_publish_data:
