@@ -1,5 +1,6 @@
 from functools import partial
 import os
+import time
 
 # import subprocess
 import queue
@@ -56,7 +57,7 @@ class VisionNode(Node):
             get_package_share_directory('ml_rescue'), 'modelhef', f'{self.hailo}.hef'
         )
         self.imgsz = 640
-        self.conf_threshold = 0.8
+        self.conf_threshold = 0.85
         self.model_classes = ['ball']
 
         self.results_queue = queue.Queue(maxsize=2)
@@ -86,7 +87,9 @@ class VisionNode(Node):
 
     def rescue_active_callback(self, request, response):
         self.isActive = request.enabled
-        response.message = 'Inference enabled' if request.enabled else 'Inference disabled'
+        response.message = (
+            'Inference enabled successfully' if request.enabled else 'Inference disabled'
+        )
 
         self.get_logger().info(response.message)
 
@@ -109,6 +112,8 @@ class VisionNode(Node):
             self.run_inference(msg)
 
     def run_inference(self, msg):
+
+        start_time = time.time()
 
         raw_frame = self.image
         # self.out.write(raw_frame)
@@ -191,6 +196,7 @@ class VisionNode(Node):
                         (0, 0, 255),
                         2,
                     )
+
             if latest_balls is None:
                 self.get_logger().info('no balls detected')
 
@@ -219,9 +225,14 @@ class VisionNode(Node):
 
         except queue.Empty:
             pass
-        if detection_msg is not None or len(detection_msg.detections) > 0:
+        if detection_msg is not None:
             # self.get_logger().info('- - - Publishing detections - - -')
             self.inference_pub.publish(detection_msg)
+
+        time_elapsed = time.time() - start_time
+        inference_fps = 1 / time_elapsed
+        if self.debug:
+            self.get_logger().info(f'--- Fps: {inference_fps:.2f} ---')
 
     def _drop_point_contours(self, raw_frame, vis_frame):
         """Hectic sketchy temporary evac point finder"""
@@ -255,7 +266,7 @@ class VisionNode(Node):
 
                 green_return = ['green', gxc, gyc, gw, gh]
 
-            cv2.drawContours(vis_frame, g_contours, -1, (255, 0, 0), 3)
+            # cv2.drawContours(vis_frame, g_contours, -1, (255, 0, 0), 3)
 
         red_evac_image1 = cv2.inRange(evac_image, lower_red1, upper_red1)
         red_evac_image2 = cv2.inRange(evac_image, lower_red2, upper_red2)
@@ -274,7 +285,7 @@ class VisionNode(Node):
 
                 red_return = ['red', rxc, ryc, rw, rh]
 
-            cv2.drawContours(vis_frame, r_contours, -1, (255, 0, 0), 3)
+            # cv2.drawContours(vis_frame, r_contours, -1, (255, 0, 0), 3)
 
         return [green_return, red_return]
 

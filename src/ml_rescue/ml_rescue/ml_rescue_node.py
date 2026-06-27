@@ -93,6 +93,7 @@ class TRescue(LifecycleNode):
         self.current_state = States.ENTER
         self.state_started = False
         self.data = None
+        self.last_data = None
 
         if self.timer:
             self.timer.reset()
@@ -233,6 +234,8 @@ class TRescue(LifecycleNode):
     def inference_callback(self, msg):
         if len(msg.detections) == 0:
             # self.get_logger().warn('Nothing detected')
+            self.last_data = self.data
+            self.data = None
             return
 
         data = []
@@ -266,20 +269,26 @@ class TRescue(LifecycleNode):
             distance = (self.fx * self.ball_radius) / average_dimension
             angle = math.atan((center_x - self.cx) / self.fx)
 
-            self.get_logger().info(f'Distance to ball: {distance:.2f}, Angle to ball: {angle:.2f}')
+            self.get_logger().info(
+                f'Distance to {class_id}: {distance:.2f}m at angle: {angle:.2f}'
+            )
 
             data.append([class_id, confidence, distance, angle, center_x])
 
+        if data == self.data:
+            self.get_logger().warn("Data hasn't changed!!")
+
+        self.last_data = self.data
         self.data = data
 
     def set_inference(self, enabled: bool):
-
-        self.data = None
 
         request = EnableInference.Request()
         request.enabled = enabled
 
         future = self.enable_inference.call_async(request)
+
+        self.data = None
 
         return future
 
@@ -299,7 +308,7 @@ class TRescue(LifecycleNode):
             return response
 
         for i in data:
-            self.get_logger().info(f'data: {i}')
+            # self.get_logger().info(f'data: {i}')
             if 'silver' in i[0] or 'ball' in i[0]:  # Append silver balls first
                 all_publish_data.append(i)
                 # self.get_logger().info('Ball detected, sending you a ball')
