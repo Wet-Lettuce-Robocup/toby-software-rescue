@@ -54,5 +54,7 @@ CATKIN_IGNORE
 .DS_Store
 .vscode/
 
-ml_rescue/ml_training/images
+src/ml_training/images
+src/ml_training/labels
 *.mp4
+
