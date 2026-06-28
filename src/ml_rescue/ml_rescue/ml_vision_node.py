@@ -41,16 +41,22 @@ class VisionNode(Node):
             Image,
             self.get_parameter('raw_image_topic').value,
             self.image_callback,
-            10,
+            1,
         )
         self.inference_pub = self.create_publisher(Detection2DArray, 'inference_stream', 10)
         self.rescue_active_srv = self.create_service(
             EnableInference, 'enable_inference', self.rescue_active_callback
         )
+
+        self.fps = 15
+        self.create_timer(1 / self.fps, self.run_inference)
+
         self.isActive = False
 
         self.bridge = CvBridge()
-        self.image = None
+
+        self.latest_image = None
+        self.latest_image_header = None
 
         self.hailo = 'robotyolov8s'  # Model name
         self.hef_path = os.path.join(
@@ -58,7 +64,7 @@ class VisionNode(Node):
         )
         self.imgsz = 640
         self.conf_threshold = 0.85
-        self.model_classes = ['ball']
+        self.model_classes = ['black', 'silver']
 
         self.results_queue = queue.Queue(maxsize=2)
 
@@ -71,9 +77,6 @@ class VisionNode(Node):
 
         self.dw = 1536
         self.dh = 864
-
-        self.fps = 15
-        self.frame_count = 0
 
         pipeline = (
             'appsrc ! queue '
@@ -96,29 +99,25 @@ class VisionNode(Node):
         return response
 
     def image_callback(self, msg):
+        self.latest_image_header = msg.header
+        self.latest_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
 
+    def run_inference(self):
         if not self.isActive:
             return
 
-        self.frame_count += 1
-        self.image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        # self.out.write(self.image)
-        if self.frame_count % 2 == 0:
-            # Convert ROS Image message to OpenCV image
-            # self.get_logger().info(
-            #     f'Processing image with type {cv_image.dtype}, shape {cv_image.shape}'
-            # )
-            # self.get_logger().info('Running inference on frame')
-            self.run_inference(msg)
-
-    def run_inference(self, msg):
+        if self.latest_image is None:
+            self.get_logger().warn('No image received, is the front camera working?')
+            return
 
         start_time = time.time()
 
-        raw_frame = self.image
+        image_header = self.latest_image_header
+        raw_frame = self.latest_image.copy()
+
         # self.out.write(raw_frame)
         resized_frame = cv2.resize(raw_frame, (self.imgsz, self.imgsz))
-        input_data = np.ascontiguousarray(resized_frame)
+        input_data = np.ascontiguousarray(resized_frame.astype(np.float32))
 
         bindings = self.configured_model.create_bindings()
         bindings.input(self.input_name).set_buffer(input_data)
@@ -132,6 +131,7 @@ class VisionNode(Node):
             display_frame=raw_frame.copy(),
         )
 
+        self.configured_model.wait_for_async_ready(timeout_ms=1000)
         job = self.configured_model.run_async([bindings], bound_callback)
         job.wait(1000)
 
@@ -139,8 +139,8 @@ class VisionNode(Node):
             vis_frame, latest_balls = self.results_queue.get_nowait()
 
             detection_msg = Detection2DArray()
-            detection_msg.header.stamp = msg.header.stamp
-            detection_msg.header.frame_id = msg.header.frame_id
+            detection_msg.header.stamp = image_header.stamp
+            detection_msg.header.frame_id = image_header.frame_id
 
             for ball in latest_balls:
                 # self.get_logger().info('Ball detected')
@@ -324,7 +324,7 @@ def main(args=None):
         pass
     finally:
         vision_node.out.release()
-        vision_node.target.release()
+        vision_node.target.close()
         vision_node.destroy_node()
         rclpy.shutdown()
 
