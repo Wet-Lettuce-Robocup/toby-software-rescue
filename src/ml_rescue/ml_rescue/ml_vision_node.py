@@ -1,9 +1,9 @@
 from functools import partial
 import os
-import time
-
-# import subprocess
 import queue
+import time
+# import subprocess
+
 
 from ament_index_python.packages import get_package_share_directory
 import cv2
@@ -49,9 +49,10 @@ class VisionNode(Node):
         )
 
         self.fps = 15
-        self.create_timer(1 / self.fps, self.run_inference)
+        self.create_timer(1 / self.fps, self.inference_callback)
 
         self.isActive = False
+        self.inferenceBusy = False
 
         self.bridge = CvBridge()
 
@@ -102,13 +103,17 @@ class VisionNode(Node):
         self.latest_image_header = msg.header
         self.latest_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
 
-    def run_inference(self):
+    def inference_callback(self):
         if not self.isActive:
             return
 
         if self.latest_image is None:
             self.get_logger().warn('No image received, is the front camera working?')
             return
+
+        self.run_inference()
+
+    def run_inference(self):
 
         start_time = time.time()
 
@@ -117,7 +122,7 @@ class VisionNode(Node):
 
         # self.out.write(raw_frame)
         resized_frame = cv2.resize(raw_frame, (self.imgsz, self.imgsz))
-        input_data = np.ascontiguousarray(resized_frame.astype(np.float32))
+        input_data = np.ascontiguousarray(resized_frame)
 
         bindings = self.configured_model.create_bindings()
         bindings.input(self.input_name).set_buffer(input_data)
@@ -128,15 +133,23 @@ class VisionNode(Node):
         bound_callback = partial(
             self._inference_callback,
             output_buffer=output_buffer,
-            display_frame=raw_frame.copy(),
+            display_frame=raw_frame,
         )
 
-        self.configured_model.wait_for_async_ready(timeout_ms=1000)
+        # self.configured_model.wait_for_async_ready(timeout_ms=1000)
+
+        # if self.inferenceBusy:
+        #     return
+
+        # self.inferenceBusy = True
+
         job = self.configured_model.run_async([bindings], bound_callback)
         job.wait(1000)
 
         try:
             vis_frame, latest_balls = self.results_queue.get_nowait()
+
+            self.get_logger().info(f'balls: {latest_balls}')
 
             detection_msg = Detection2DArray()
             detection_msg.header.stamp = image_header.stamp
@@ -235,8 +248,7 @@ class VisionNode(Node):
             self.get_logger().info(f'--- Fps: {inference_fps:.2f} ---')
 
     def _drop_point_contours(self, raw_frame, vis_frame):
-        """Hectic sketchy temporary evac point finder"""
-
+        """Hectic sketchy temporary evac point finder."""
         green_return = []
         red_return = []
 
@@ -314,6 +326,8 @@ class VisionNode(Node):
         if not self.results_queue.full():
             self.results_queue.put_nowait((display_frame, detections))
 
+        # self.inferenceBusy = False
+
 
 def main(args=None):
     try:
@@ -324,7 +338,7 @@ def main(args=None):
         pass
     finally:
         vision_node.out.release()
-        vision_node.target.close()
+        vision_node.target.release()
         vision_node.destroy_node()
         rclpy.shutdown()
 
