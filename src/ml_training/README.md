@@ -1,4 +1,8 @@
-When using CVAT, you can automatically annotate images using a ml model. How I did this:
+To annotate images, I used a software called CVAT (Computer Vision Annotation Tool).
+
+I hosted it locally on my laptop using Docker. 
+
+When using CVAT, you can automatically annotate images using a ml (machine learning) model. How I did this:
 
 In the directory cvat/serverless, paste the shell script and 'yolov8' directory, then run:
 
@@ -18,11 +22,16 @@ Rename obj_train_data directory to labels
 Place the folder containing images into the same base directory
 Move labels into base labels directory from upload
 
-Move train_val_split.py into directory and run it.
+Run train_val_split.py from the ml_training directory and it will copy the images and labels into train and val subfolders.
 
-Move labels and images directories over to this ml_training directory and leave behind the images and labels that aren't in train/val
+Change the values in conf.yaml to match the classes of objects that were annotated.
+
+Run train.py, on a laptop 300 epochs takes about 3 hours to run. The training will stop early if there is no improvement for 50 epochs.
 
 
+Once training is complete, find the best.pt file in runs/detect/train and run the command below:
 
-When exporting yolo model to onnx:
 `yolo export model=best.pt format=onnx imgsz=640 simplify=False opset=12 dynamic=False`
+
+This will convert the PyTorch model to a .onnx model, which is now ready to be compiled into Hailo's proprietary format.
+Move the .onnx model into /src/hailo_docker/models

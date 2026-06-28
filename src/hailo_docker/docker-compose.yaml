@@ -10,9 +10,9 @@ services:
       - ./calibration_images:/app/calibration_images
 
     command: 
-      - bash
-    # - python
-    # - src/main.py
+      # - bash
+    - python
+    - src/main.py
 
     stdin_open: true
     tty: true
