@@ -232,13 +232,15 @@ class TRescue(LifecycleNode):
         self.state_started = False
 
     def inference_callback(self, msg):
+        old_data = self.data if self.data is not None else []
+
         if len(msg.detections) == 0:
-            # self.get_logger().warn('Nothing detected')
-            self.last_data = self.data
+            self.get_logger().warn('Nothing detected')
+            self.last_data = old_data
             self.data = None
             return
 
-        data = []
+        current_data = []
 
         for detection in msg.detections:
             # Skip detections with no classification
@@ -273,13 +275,14 @@ class TRescue(LifecycleNode):
                 f'Distance to {class_id}: {distance:.2f}m at angle: {angle:.2f}'
             )
 
-            data.append([class_id, confidence, distance, angle, center_x])
+            current_data.append([class_id, confidence, distance, angle, center_x])
 
-        if data == self.data:
-            self.get_logger().warn("Data hasn't changed!!")
+        if current_data == old_data:
+            # self.get_logger().warn("Data hasn't changed!!")
+            return
 
-        self.last_data = self.data
-        self.data = data
+        self.last_data = old_data
+        self.data = current_data
 
     def set_inference(self, enabled: bool):
 

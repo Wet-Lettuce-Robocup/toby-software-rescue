@@ -69,12 +69,20 @@ class VisionNode(Node):
 
         self.results_queue = queue.Queue(maxsize=2)
 
-        self.target = VDevice()
-        self.infer_model = self.target.create_infer_model(self.hef_path)
-        self.input_name = self.infer_model.input_names[0]
-        self.output_name = self.infer_model.output_names[0]
-        self.output_shape = self.infer_model.output(self.output_name).shape
-        self.configured_model = self.infer_model.configure()
+        try:
+            self.target = VDevice()
+            self.infer_model = self.target.create_infer_model(self.hef_path)
+            self.input_name = self.infer_model.input_names[0]
+            self.output_name = self.infer_model.output_names[0]
+            self.output_shape = self.infer_model.output(self.output_name).shape
+            self.configured_model = self.infer_model.configure()
+
+        except Exception as e:
+            self.get_logger().error(f'Error loading hailort: {e}')
+            self.target = None
+            raise
+
+        self.out = None
 
         self.dw = 1536
         self.dh = 864
@@ -111,7 +119,7 @@ class VisionNode(Node):
             self.get_logger().warn('No image received, is the front camera working?')
             return
 
-        self.run_inference()
+        self.run_inference()  # What I want to do is separate inference from red/green contours to hopefully boost fps
 
     def run_inference(self):
 
@@ -242,10 +250,10 @@ class VisionNode(Node):
             # self.get_logger().info('- - - Publishing detections - - -')
             self.inference_pub.publish(detection_msg)
 
-        time_elapsed = time.time() - start_time
-        inference_fps = 1 / time_elapsed
-        if self.debug:
-            self.get_logger().info(f'--- Fps: {inference_fps:.2f} ---')
+        # time_elapsed = time.time() - start_time
+        # inference_fps = 1 / time_elapsed
+        # if self.debug:
+        #     self.get_logger().info(f'--- Fps: {inference_fps:.2f} ---')
 
     def _drop_point_contours(self, raw_frame, vis_frame):
         """Hectic sketchy temporary evac point finder."""
