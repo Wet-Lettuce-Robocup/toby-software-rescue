@@ -48,7 +48,7 @@ class VisionNode(Node):
             EnableInference, 'enable_inference', self.rescue_active_callback
         )
 
-        self.fps = 15
+        self.fps = 30
         self.create_timer(1 / self.fps, self.inference_callback)
 
         self.isActive = False
@@ -64,7 +64,7 @@ class VisionNode(Node):
             get_package_share_directory('ml_rescue'), 'modelhef', f'{self.hailo}.hef'
         )
         self.imgsz = 640
-        self.conf_threshold = 0.85
+        self.conf_threshold = 0.8
         self.model_classes = ['black', 'silver']
 
         self.results_queue = queue.Queue(maxsize=2)
@@ -123,7 +123,7 @@ class VisionNode(Node):
 
     def run_inference(self):
 
-        start_time = time.time()
+        # start_time = time.time()
 
         image_header = self.latest_image_header
         raw_frame = self.latest_image.copy()
@@ -183,6 +183,25 @@ class VisionNode(Node):
 
                 # self.get_logger().info(f'pxc={pxc} ({type(pxc)}), pyc={pyc} ({type(pyc)})')
 
+                roi = vis_frame[py1:py2, px1:px2]
+                gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+
+                mean = gray.mean()
+                std = gray.std()
+
+                highlight_pixels = np.sum(gray > 240)
+                highlight_ratio = highlight_pixels / gray.size
+                edge_ratio = np.mean(cv2.Canny(gray, 80, 150) > 0)
+
+                if highlight_ratio > 0.003 and std > 40:
+                    material = 'silver'
+                else:
+                    material = 'black'
+
+                self.get_logger().info(
+                    f'Mean: {mean}, std: {std}, px: {highlight_pixels}, hratio: {highlight_ratio}, edge: {edge_ratio}, size: {gray.size}'
+                )
+
                 detection = Detection2D()
                 detection.header = detection_msg.header
 
@@ -192,7 +211,7 @@ class VisionNode(Node):
                 detection.bbox.size_y = float(py2 - py1)
 
                 hypothesis = ObjectHypothesisWithPose()
-                hypothesis.hypothesis.class_id = 'silver'
+                hypothesis.hypothesis.class_id = material
                 hypothesis.hypothesis.score = float(score)
 
                 detection.results.append(hypothesis)
@@ -246,6 +265,7 @@ class VisionNode(Node):
 
         except queue.Empty:
             pass
+
         if detection_msg is not None:
             # self.get_logger().info('- - - Publishing detections - - -')
             self.inference_pub.publish(detection_msg)
