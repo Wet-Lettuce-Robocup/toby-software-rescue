@@ -262,9 +262,9 @@ class VisionNode(Node):
 
         lower_green = np.array([40, 100, 100])
         upper_green = np.array([80, 255, 255])
-        lower_red1 = np.array([0, 80, 50])
+        lower_red1 = np.array([0, 200, 100])
         upper_red1 = np.array([10, 255, 255])
-        lower_red2 = np.array([170, 80, 50])
+        lower_red2 = np.array([170, 200, 100])
         upper_red2 = np.array([180, 255, 255])
         min_tray_size = 10000
 
