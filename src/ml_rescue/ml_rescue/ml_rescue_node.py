@@ -251,31 +251,34 @@ class TRescue(LifecycleNode):
             class_id = result.hypothesis.class_id
             confidence = result.hypothesis.score
 
-            if class_id not in ['ball', 'silver', 'black', 'red', 'green']:
-                self.get_logger().warn(f'Class id is not valid: {class_id}')
-                continue
-
-            center_x = detection.bbox.center.position.x
-            # center_y = detection.bbox.center.position.y
-
+            centre_x = detection.bbox.center.position.x
+            # centre_y = detection.bbox.center.position.y
             width = detection.bbox.size_x
             height = detection.bbox.size_y
 
+            if class_id in ['ball', 'silver', 'black']:
+                average_dimension = (width + height) / 2
+                distance = (self.fx * self.ball_radius) / average_dimension
+
+            elif class_id in ['red', 'green']:
+                distance = (self.fy * 0.06) / height
+
+            else:
+                self.get_logger().warn(f'Class id is not valid: {class_id}')
+                continue
+
+            angle = math.atan((centre_x - self.cx) / self.fx)
+
             # self.get_logger().info(
-            #     f'Ball: x={center_x:.1f}, y={center_y:.1f}, '
+            #     f'Ball: x={centre_x:.1f}, y={centre_y:.1f}, '
             #     f'w={width:.1f}, h={height:.1f}, conf={confidence:.2f}'
             # )
-
-            average_dimension = (width + height) / 2
-
-            distance = (self.fx * self.ball_radius) / average_dimension
-            angle = math.atan((center_x - self.cx) / self.fx)
 
             self.get_logger().info(
                 f'Distance to {class_id}: {distance:.2f}m at angle: {angle:.2f}'
             )
 
-            current_data.append([class_id, confidence, distance, angle, center_x])
+            current_data.append([class_id, confidence, distance, angle, centre_x])
 
         if current_data == old_data:
             # self.get_logger().warn("Data hasn't changed!!")
