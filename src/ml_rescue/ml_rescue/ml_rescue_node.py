@@ -235,7 +235,7 @@ class TRescue(LifecycleNode):
         old_data = self.data if self.data is not None else []
 
         if len(msg.detections) == 0:
-            self.get_logger().warn('Nothing detected')
+            # self.get_logger().warn('Nothing detected')
             self.last_data = old_data
             self.data = None
             return

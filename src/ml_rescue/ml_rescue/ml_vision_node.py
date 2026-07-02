@@ -196,10 +196,10 @@ class VisionNode(Node):
                 # if highlight_ratio > 0.003 and std > 45:
                 if mean > 100:
                     material = 'silver'
-                    self.get_logger().info(f'Mean is {mean} detected as silver')
+                    # self.get_logger().info(f'Mean is {mean} detected as silver')
                 else:
                     material = 'black'
-                    self.get_logger().info(f'Mean is {mean} detected as black')
+                    # self.get_logger().info(f'Mean is {mean} detected as black')
 
                 # self.get_logger().info(
                 #     f'Mean: {mean}, std: {std}, px: {highlight_pixels}, hratio: {highlight_ratio}, edge: {edge_ratio}, size: {gray.size}'
