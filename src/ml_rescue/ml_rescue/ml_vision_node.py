@@ -351,7 +351,7 @@ class VisionNode(Node):
 
         for class_id, class_name in enumerate(self.model_classes):
             num_detections = int(flat_buffer[idx])
-            idx += 1
+            idx += 5
             self.get_logger().info(f'class {class_name}: {num_detections} detections')
 
             for _ in range(num_detections):
