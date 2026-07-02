@@ -187,20 +187,23 @@ class VisionNode(Node):
                 gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
 
                 mean = gray.mean()
-                std = gray.std()
+                # std = gray.std()
 
-                highlight_pixels = np.sum(gray > 240)
-                highlight_ratio = highlight_pixels / gray.size
-                edge_ratio = np.mean(cv2.Canny(gray, 80, 150) > 0)
+                # highlight_pixels = np.sum(gray > 220)
+                # highlight_ratio = highlight_pixels / gray.size
+                # edge_ratio = np.mean(cv2.Canny(gray, 80, 150) > 0)
 
-                if highlight_ratio > 0.003 and std > 40:
+                # if highlight_ratio > 0.003 and std > 45:
+                if mean > 100:
                     material = 'silver'
+                    self.get_logger().info(f'Mean is {mean} detected as silver')
                 else:
                     material = 'black'
+                    self.get_logger().info(f'Mean is {mean} detected as black')
 
-                self.get_logger().info(
-                    f'Mean: {mean}, std: {std}, px: {highlight_pixels}, hratio: {highlight_ratio}, edge: {edge_ratio}, size: {gray.size}'
-                )
+                # self.get_logger().info(
+                #     f'Mean: {mean}, std: {std}, px: {highlight_pixels}, hratio: {highlight_ratio}, edge: {edge_ratio}, size: {gray.size}'
+                # )
 
                 detection = Detection2D()
                 detection.header = detection_msg.header
