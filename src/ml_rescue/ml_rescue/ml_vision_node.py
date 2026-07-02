@@ -127,6 +127,7 @@ class VisionNode(Node):
 
         image_header = self.latest_image_header
         raw_frame = self.latest_image.copy()
+        detection_msg = None
 
         # self.out.write(raw_frame)
         resized_frame = cv2.resize(raw_frame, (self.imgsz, self.imgsz))
@@ -241,7 +242,7 @@ class VisionNode(Node):
                         2,
                     )
 
-            if latest_balls is None:
+            if latest_balls is None or len(latest_balls == 0):
                 self.get_logger().info('no balls detected')
 
             inf_time_elapsed = time.time() - start_time
@@ -274,7 +275,7 @@ class VisionNode(Node):
         except queue.Empty:
             pass
 
-        if detection_msg is not None:
+        if detection_msg.detections:
             # self.get_logger().info('- - - Publishing detections - - -')
             self.inference_pub.publish(detection_msg)
 
@@ -345,7 +346,11 @@ class VisionNode(Node):
         detections = []
         idx = 0
 
-        self.get_logger().info(f'Output: {output_buffer.shape}, flat: {flat_buffer[:40]}')
+        # self.get_logger().info(f'Output: {output_buffer.shape}, flat: {flat_buffer[:40]}')
+        self.get_logger().info(f'output_buffer.shape = {output_buffer.shape}')
+        self.get_logger().info(f'output_buffer.dtype = {output_buffer.dtype}')
+        self.get_logger().info(output_buffer[0:5] if output_buffer.ndim == 1 else output_buffer)
+        self.get_logger().info(f'flat_buffer[:80] = {flat_buffer[:80]}')
 
         # self.get_logger().info(f'Flat buffer: {flat_buffer[0]}')
 
