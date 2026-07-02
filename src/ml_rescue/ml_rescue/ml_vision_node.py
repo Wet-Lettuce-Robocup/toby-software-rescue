@@ -342,6 +342,8 @@ class VisionNode(Node):
         num_detections = int(flat_buffer[0])
         detections = []
 
+        self.get_logger().info(f'Output: {output_buffer}, flat: {flat_buffer}')
+
         # self.get_logger().info(f'Flat buffer: {flat_buffer[0]}')
 
         for i in range(num_detections):
