@@ -123,7 +123,7 @@ class VisionNode(Node):
 
     def run_inference(self):
 
-        # start_time = time.time()
+        start_time = time.time()
 
         image_header = self.latest_image_header
         raw_frame = self.latest_image.copy()
@@ -243,6 +243,10 @@ class VisionNode(Node):
             if latest_balls is None:
                 self.get_logger().info('no balls detected')
 
+            inf_time_elapsed = time.time() - start_time
+            if self.debug:
+                self.get_logger().info(f'--- Just for inference: {inf_time_elapsed:.2f} ---')
+
             green, red = self._drop_point_contours(raw_frame, vis_frame)
 
             # For context: [colour, xc, yc, width, height]
@@ -273,10 +277,10 @@ class VisionNode(Node):
             # self.get_logger().info('- - - Publishing detections - - -')
             self.inference_pub.publish(detection_msg)
 
-        # time_elapsed = time.time() - start_time
-        # inference_fps = 1 / time_elapsed
-        # if self.debug:
-        #     self.get_logger().info(f'--- Fps: {inference_fps:.2f} ---')
+        time_elapsed = time.time() - start_time
+        if self.debug:
+            self.get_logger().info(f'--- Total time elapsed: {time_elapsed:.2f} ---')
+            self.get_logger().info(f'Time for contouring: {time_elapsed - inf_time_elapsed}')
 
     def _drop_point_contours(self, raw_frame, vis_frame):
         """Hectic sketchy temporary evac point finder."""
