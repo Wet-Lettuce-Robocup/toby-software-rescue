@@ -167,6 +167,7 @@ class VisionNode(Node):
                 # self.get_logger().info('Ball detected')
                 y1, x1, y2, x2 = ball['box']
                 score = ball['score']
+                material = ball['class_name']
 
                 # Scale values back to original frame size
                 px1 = int(x1 * self.dw)
@@ -183,27 +184,27 @@ class VisionNode(Node):
 
                 # self.get_logger().info(f'pxc={pxc} ({type(pxc)}), pyc={pyc} ({type(pyc)})')
 
-                roi = vis_frame[py1:py2, px1:px2]
-                gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+                # roi = vis_frame[py1:py2, px1:px2]
+                # gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
 
-                mean = gray.mean()
-                # std = gray.std()
+                # mean = gray.mean()
+                # # std = gray.std()
 
-                # highlight_pixels = np.sum(gray > 220)
-                # highlight_ratio = highlight_pixels / gray.size
-                # edge_ratio = np.mean(cv2.Canny(gray, 80, 150) > 0)
+                # # highlight_pixels = np.sum(gray > 220)
+                # # highlight_ratio = highlight_pixels / gray.size
+                # # edge_ratio = np.mean(cv2.Canny(gray, 80, 150) > 0)
 
-                # if highlight_ratio > 0.003 and std > 45:
-                if mean > 100:
-                    material = 'silver'
-                    # self.get_logger().info(f'Mean is {mean} detected as silver')
-                else:
-                    material = 'black'
-                    # self.get_logger().info(f'Mean is {mean} detected as black')
+                # # if highlight_ratio > 0.003 and std > 45:
+                # if mean > 100:
+                #     material = 'silver'
+                #     # self.get_logger().info(f'Mean is {mean} detected as silver')
+                # else:
+                #     material = 'black'
+                #     # self.get_logger().info(f'Mean is {mean} detected as black')
 
-                # self.get_logger().info(
-                #     f'Mean: {mean}, std: {std}, px: {highlight_pixels}, hratio: {highlight_ratio}, edge: {edge_ratio}, size: {gray.size}'
-                # )
+                # # self.get_logger().info(
+                # #     f'Mean: {mean}, std: {std}, px: {highlight_pixels}, hratio: {highlight_ratio}, edge: {edge_ratio}, size: {gray.size}'
+                # # )
 
                 detection = Detection2D()
                 detection.header = detection_msg.header
@@ -341,23 +342,32 @@ class VisionNode(Node):
     def _inference_callback(self, completion_info, output_buffer=None, display_frame=None):
 
         flat_buffer = output_buffer.flatten()
-        num_detections = int(flat_buffer[0])
         detections = []
+        idx = 0
 
-        self.get_logger().info(f'Output: {output_buffer}, flat: {flat_buffer}')
+        self.get_logger().info(f'Output: {output_buffer.shape}, flat: {flat_buffer[:40]}')
 
         # self.get_logger().info(f'Flat buffer: {flat_buffer[0]}')
 
-        for i in range(num_detections):
-            start_idx = 1 + (i * 5)
-            y1 = output_buffer[start_idx]
-            x1 = output_buffer[start_idx + 1]
-            y2 = output_buffer[start_idx + 2]
-            x2 = output_buffer[start_idx + 3]
-            score = output_buffer[start_idx + 4]
+        for class_id, class_name in enumerate(self.model_classes):
+            num_detections = int(flat_buffer[idx])
+            idx += 1
+            self.get_logger().info(f'class {class_name}: {num_detections} detections')
 
-            if score >= self.conf_threshold:
-                detections.append({'box': [y1, x1, y2, x2], 'score': score})
+            for _ in range(num_detections):
+                y1 = flat_buffer[idx]
+                x1 = flat_buffer[idx + 1]
+                y2 = flat_buffer[idx + 2]
+                x2 = flat_buffer[idx + 3]
+                score = flat_buffer[idx + 4]
+
+                # if score >= self.conf_threshold:
+                detections.append({
+                    'box': [y1, x1, y2, x2],
+                    'score': score,
+                    'class_id': class_id,
+                    'class_name': class_name,
+                })
 
         # self.get_logger().info(f'Completion info: {completion_info}')
 
