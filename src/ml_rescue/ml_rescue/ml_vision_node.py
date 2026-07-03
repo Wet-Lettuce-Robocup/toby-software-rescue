@@ -242,7 +242,7 @@ class VisionNode(Node):
                         2,
                     )
 
-            if latest_balls is None or len(latest_balls == 0):
+            if latest_balls is None or len(latest_balls) == 0:
                 self.get_logger().info('no balls detected')
 
             inf_time_elapsed = time.time() - start_time
@@ -349,7 +349,9 @@ class VisionNode(Node):
         # self.get_logger().info(f'Output: {output_buffer.shape}, flat: {flat_buffer[:40]}')
         self.get_logger().info(f'output_buffer.shape = {output_buffer.shape}')
         self.get_logger().info(f'output_buffer.dtype = {output_buffer.dtype}')
-        self.get_logger().info(output_buffer[0:5] if output_buffer.ndim == 1 else output_buffer)
+        self.get_logger().info(
+            f'{output_buffer[0:5] if output_buffer.ndim == 1 else output_buffer}'
+        )
         self.get_logger().info(f'flat_buffer[:80] = {flat_buffer[:80]}')
 
         # self.get_logger().info(f'Flat buffer: {flat_buffer[0]}')
