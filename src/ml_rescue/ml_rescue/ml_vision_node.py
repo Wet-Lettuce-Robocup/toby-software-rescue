@@ -64,7 +64,7 @@ class VisionNode(Node):
             get_package_share_directory('ml_rescue'), 'modelhef', f'{self.hailo}.hef'
         )
         self.imgsz = 640
-        self.conf_threshold = 0.6
+        self.conf_threshold = 0.8
         self.model_classes = ['black', 'silver']
 
         self.results_queue = queue.Queue(maxsize=2)
@@ -245,9 +245,9 @@ class VisionNode(Node):
             if latest_balls is None or len(latest_balls) == 0:
                 self.get_logger().info('no balls detected')
 
-            inf_time_elapsed = time.time() - start_time
-            if self.debug:
-                self.get_logger().info(f'--- Just for inference: {inf_time_elapsed:.2f} ---')
+            # inf_time_elapsed = time.time() - start_time
+            # if self.debug:
+            #     self.get_logger().info(f'--- Just for inference: {inf_time_elapsed:.2f} ---')
 
             green, red = self._drop_point_contours(raw_frame, vis_frame)
 
@@ -279,12 +279,12 @@ class VisionNode(Node):
             # self.get_logger().info('- - - Publishing detections - - -')
             self.inference_pub.publish(detection_msg)
 
-        time_elapsed = time.time() - start_time
-        if self.debug:
-            self.get_logger().info(f'--- Total time elapsed: {time_elapsed:.2f}s ---')
-            self.get_logger().info(
-                f'Time for contouring: {(time_elapsed - inf_time_elapsed):.2f}s'
-            )
+        # time_elapsed = time.time() - start_time
+        # if self.debug:
+        #     self.get_logger().info(f'--- Total time elapsed: {time_elapsed:.2f}s ---')
+        #     self.get_logger().info(
+        #         f'Time for contouring: {(time_elapsed - inf_time_elapsed):.2f}s'
+        #     )
 
     def _drop_point_contours(self, raw_frame, vis_frame):
         """Hectic sketchy temporary evac point finder."""
@@ -389,14 +389,14 @@ class VisionNode(Node):
                         'class_name': class_name,
                     })
 
-                    self.get_logger().info(
-                        f'kept {class_name}: score={score:.3f}, box={[y1, x1, y2, x2]}'
-                    )
+                    # self.get_logger().info(
+                    #     f'kept {class_name}: score={score:.3f}, box={[y1, x1, y2, x2]}'
+                    # )
 
-                else:
-                    self.get_logger().info(
-                        f'dropped {class_name}: score={score:.3f}, box={[y1, x1, y2, x2]}'
-                    )
+                # else:
+                #     self.get_logger().info(
+                #         f'dropped {class_name}: score={score:.3f}, box={[y1, x1, y2, x2]}'
+                #     )
 
         # self.get_logger().info(f'Completion info: {completion_info}')
 
