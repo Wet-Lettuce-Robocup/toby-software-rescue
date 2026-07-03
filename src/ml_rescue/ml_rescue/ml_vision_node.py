@@ -64,7 +64,7 @@ class VisionNode(Node):
             get_package_share_directory('ml_rescue'), 'modelhef', f'{self.hailo}.hef'
         )
         self.imgsz = 640
-        self.conf_threshold = 0.8
+        self.conf_threshold = 0.6
         self.model_classes = ['black', 'silver']
 
         self.results_queue = queue.Queue(maxsize=2)
@@ -299,6 +299,7 @@ class VisionNode(Node):
         upper_red2 = np.array([180, 255, 255])
         min_tray_size = 10000
 
+        # evac_image = cv2.resize(raw_frame, (640, 480))
         evac_image = cv2.cvtColor(raw_frame, cv2.COLOR_BGR2HSV)
         evac_image = cv2.GaussianBlur(evac_image, (5, 5), 0)
 
@@ -344,9 +345,11 @@ class VisionNode(Node):
 
         flat_buffer = output_buffer.flatten()
         detections = []
-        idx = 0
 
-        # self.get_logger().info(f'Output: {output_buffer.shape}, flat: {flat_buffer[:40]}')
+        max_dets = 100
+        vals = 5
+        class_block = 1 + max_dets * vals  # 1002/2 = 501
+
         self.get_logger().info(f'output_buffer.shape = {output_buffer.shape}')
         self.get_logger().info(f'output_buffer.dtype = {output_buffer.dtype}')
         self.get_logger().info(
@@ -354,27 +357,34 @@ class VisionNode(Node):
         )
         self.get_logger().info(f'flat_buffer[:80] = {flat_buffer[:80]}')
 
-        # self.get_logger().info(f'Flat buffer: {flat_buffer[0]}')
-
         for class_id, class_name in enumerate(self.model_classes):
-            num_detections = int(flat_buffer[idx])
-            idx += 5
+            base = class_id * class_block
+            num_detections = int(flat_buffer[base])
+
             self.get_logger().info(f'class {class_name}: {num_detections} detections')
 
-            for _ in range(num_detections):
-                y1 = flat_buffer[idx]
-                x1 = flat_buffer[idx + 1]
-                y2 = flat_buffer[idx + 2]
-                x2 = flat_buffer[idx + 3]
-                score = flat_buffer[idx + 4]
+            num_detections = max(0, min(num_detections, max_dets))  # just in case
 
-                # if score >= self.conf_threshold:
-                detections.append({
-                    'box': [y1, x1, y2, x2],
-                    'score': score,
-                    'class_id': class_id,
-                    'class_name': class_name,
-                })
+            for idx in range(num_detections):
+                det_base = base + 1 + idx * vals
+
+                y1 = flat_buffer[det_base]
+                x1 = flat_buffer[det_base + 1]
+                y2 = flat_buffer[det_base + 2]
+                x2 = flat_buffer[det_base + 3]
+                score = flat_buffer[det_base + 4]
+
+                if score >= self.conf_threshold:
+                    detections.append({
+                        'box': [y1, x1, y2, x2],
+                        'score': score,
+                        'class_id': class_id,
+                        'class_name': class_name,
+                    })
+
+                self.get_logger().info(
+                    f'kept {class_name}: score={score:.3f}, box={[y1, x1, y2, x2]}'
+                )
 
         # self.get_logger().info(f'Completion info: {completion_info}')
 
