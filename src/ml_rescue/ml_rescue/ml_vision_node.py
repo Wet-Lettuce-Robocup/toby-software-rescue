@@ -64,7 +64,7 @@ class VisionNode(Node):
             get_package_share_directory('ml_rescue'), 'modelhef', f'{self.hailo}.hef'
         )
         self.imgsz = 640
-        self.conf_threshold = 0.8
+        self.conf_threshold = 0.7
         self.model_classes = ['black', 'silver']
 
         self.results_queue = queue.Queue(maxsize=2)
