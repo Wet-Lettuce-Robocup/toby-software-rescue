@@ -48,7 +48,7 @@ class VisionNode(Node):
             EnableInference, 'enable_inference', self.rescue_active_callback
         )
 
-        self.fps = 30
+        self.fps = 10
         self.create_timer(1 / self.fps, self.inference_callback)
 
         self.isActive = False
