@@ -119,11 +119,12 @@ class VisionNode(Node):
             self.get_logger().warn('No image received, is the front camera working?')
             return
 
-        self.run_inference()  # What I want to do is separate inference from red/green contours to hopefully boost fps
+        # What I want to do is separate inference from red/green contours to hopefully boost fps
+        self.run_inference()
 
     def run_inference(self):
 
-        start_time = time.time()
+        # start_time = time.time()
 
         image_header = self.latest_image_header
         raw_frame = self.latest_image.copy()
@@ -204,7 +205,8 @@ class VisionNode(Node):
                 #     # self.get_logger().info(f'Mean is {mean} detected as black')
 
                 # # self.get_logger().info(
-                # #     f'Mean: {mean}, std: {std}, px: {highlight_pixels}, hratio: {highlight_ratio}, edge: {edge_ratio}, size: {gray.size}'
+                # #     f'Mean: {mean}, std: {std}, px: {highlight_pixels},
+                # # hratio: {highlight_ratio}, edge: {edge_ratio}, size: {gray.size}'
                 # # )
 
                 detection = Detection2D()
