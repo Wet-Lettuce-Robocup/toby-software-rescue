@@ -158,7 +158,7 @@ class VisionNode(Node):
         try:
             vis_frame, latest_balls = self.results_queue.get_nowait()
 
-            self.get_logger().info(f'balls: {latest_balls}')
+            # self.get_logger().info(f'balls: {latest_balls}')
 
             detection_msg = Detection2DArray()
             detection_msg.header.stamp = image_header.stamp
@@ -350,8 +350,8 @@ class VisionNode(Node):
         vals = 5
         max_dets = 100
 
-        self.get_logger().info(f'output_buffer.shape = {output_buffer.shape}')
-        self.get_logger().info(f'flat_buffer[:80] = {flat_buffer[:80]}')
+        # self.get_logger().info(f'output_buffer.shape = {output_buffer.shape}')
+        # self.get_logger().info(f'flat_buffer[:80] = {flat_buffer[:80]}')
 
         for class_id, class_name in enumerate(self.model_classes):
             if idx >= len(flat_buffer):
