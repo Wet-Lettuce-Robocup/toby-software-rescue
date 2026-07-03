@@ -48,7 +48,7 @@ class VisionNode(Node):
             EnableInference, 'enable_inference', self.rescue_active_callback
         )
 
-        self.fps = 10
+        self.fps = 5
         self.create_timer(1 / self.fps, self.inference_callback)
 
         self.isActive = False
@@ -165,7 +165,7 @@ class VisionNode(Node):
             detection_msg.header.frame_id = image_header.frame_id
 
             for ball in latest_balls:
-                # self.get_logger().info('Ball detected')
+                self.get_logger().info('Ball detected')
                 y1, x1, y2, x2 = ball['box']
                 score = ball['score']
                 material = ball['class_name']
@@ -362,7 +362,7 @@ class VisionNode(Node):
             num_detections = int(flat_buffer[idx])
             idx += 1
 
-            self.get_logger().info(f'class {class_name}: {num_detections} detections')
+            # self.get_logger().info(f'class {class_name}: {num_detections} detections')
 
             num_detections = max(0, min(num_detections, max_dets))  # just in case
 
