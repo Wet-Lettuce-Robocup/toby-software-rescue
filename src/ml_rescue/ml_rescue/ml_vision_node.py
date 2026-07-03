@@ -346,33 +346,40 @@ class VisionNode(Node):
         flat_buffer = output_buffer.flatten()
         detections = []
 
-        max_dets = 100
+        idx = 0
         vals = 5
-        class_block = 1 + max_dets * vals  # 1002/2 = 501
+        max_dets = 100
 
         self.get_logger().info(f'output_buffer.shape = {output_buffer.shape}')
-        self.get_logger().info(f'output_buffer.dtype = {output_buffer.dtype}')
-        self.get_logger().info(
-            f'{output_buffer[0:5] if output_buffer.ndim == 1 else output_buffer}'
-        )
         self.get_logger().info(f'flat_buffer[:80] = {flat_buffer[:80]}')
 
         for class_id, class_name in enumerate(self.model_classes):
-            base = class_id * class_block
-            num_detections = int(flat_buffer[base])
+            if idx >= len(flat_buffer):
+                self.get_logger().warn(
+                    f'Ran out of buffer before reading count for class {class_name} at idx={idx}'
+                )
+                break
+            num_detections = int(flat_buffer[idx])
+            idx += 1
 
             self.get_logger().info(f'class {class_name}: {num_detections} detections')
 
             num_detections = max(0, min(num_detections, max_dets))  # just in case
 
-            for idx in range(num_detections):
-                det_base = base + 1 + idx * vals
+            for det_i in range(num_detections):
+                if idx + vals > len(flat_buffer):
+                    self.get_logger().warn(
+                        f'Ran out of buffer while reading detection {det_i} for class {class_name}'
+                    )
+                    break
 
-                y1 = flat_buffer[det_base]
-                x1 = flat_buffer[det_base + 1]
-                y2 = flat_buffer[det_base + 2]
-                x2 = flat_buffer[det_base + 3]
-                score = flat_buffer[det_base + 4]
+                y1 = flat_buffer[idx]
+                x1 = flat_buffer[idx + 1]
+                y2 = flat_buffer[idx + 2]
+                x2 = flat_buffer[idx + 3]
+                score = flat_buffer[idx + 4]
+
+                idx += vals
 
                 if score >= self.conf_threshold:
                     detections.append({
@@ -382,9 +389,14 @@ class VisionNode(Node):
                         'class_name': class_name,
                     })
 
-                self.get_logger().info(
-                    f'kept {class_name}: score={score:.3f}, box={[y1, x1, y2, x2]}'
-                )
+                    self.get_logger().info(
+                        f'kept {class_name}: score={score:.3f}, box={[y1, x1, y2, x2]}'
+                    )
+
+                else:
+                    self.get_logger().info(
+                        f'dropped {class_name}: score={score:.3f}, box={[y1, x1, y2, x2]}'
+                    )
 
         # self.get_logger().info(f'Completion info: {completion_info}')
 
