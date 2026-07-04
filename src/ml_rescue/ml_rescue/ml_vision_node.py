@@ -184,17 +184,30 @@ class VisionNode(Node):
                 pxc = (px1 + px2) / 2
                 pyc = (py1 + py2) / 2
 
+                # self.get_logger().info(f'pxc={pxc} ({type(pxc)}), pyc={pyc} ({type(pyc)})')
+
                 # roi = vis_frame[py1:py2, px1:px2]
                 # gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
 
                 # mean = gray.mean()
+                # # std = gray.std()
 
+                # # highlight_pixels = np.sum(gray > 220)
+                # # highlight_ratio = highlight_pixels / gray.size
+                # # edge_ratio = np.mean(cv2.Canny(gray, 80, 150) > 0)
+
+                # # if highlight_ratio > 0.003 and std > 45:
                 # if mean > 100:
                 #     material = 'silver'
                 #     # self.get_logger().info(f'Mean is {mean} detected as silver')
                 # else:
                 #     material = 'black'
                 #     # self.get_logger().info(f'Mean is {mean} detected as black')
+
+                # # self.get_logger().info(
+                # #     f'Mean: {mean}, std: {std}, px: {highlight_pixels},
+                # # hratio: {highlight_ratio}, edge: {edge_ratio}, size: {gray.size}'
+                # # )
 
                 detection = Detection2D()
                 detection.header = detection_msg.header
@@ -231,9 +244,31 @@ class VisionNode(Node):
                         2,
                     )
 
+            if latest_balls is None or len(latest_balls) == 0:
+                self.get_logger().info('no balls detected')
+
             # inf_time_elapsed = time.time() - start_time
             # if self.debug:
             #     self.get_logger().info(f'--- Just for inference: {inf_time_elapsed:.2f} ---')
+
+            green, red = self._drop_point_contours(raw_frame, vis_frame)
+
+            # For context: [colour, xc, yc, width, height]
+            for i in [green, red]:
+                if len(i) > 0:
+                    detection = Detection2D()
+                    detection.header = detection_msg.header
+
+                    detection.bbox.center.position.x = float(i[1])
+                    detection.bbox.center.position.y = float(i[2])
+                    detection.bbox.size_x = float(i[3])
+                    detection.bbox.size_y = float(i[4])
+
+                    hypothesis = ObjectHypothesisWithPose()
+                    hypothesis.hypothesis.class_id = i[0]
+
+                    detection.results.append(hypothesis)
+                    detection_msg.detections.append(detection)
 
             # Render frame to video
             if self.debug:
@@ -252,6 +287,61 @@ class VisionNode(Node):
         #     self.get_logger().info(
         #         f'Time for contouring: {(time_elapsed - inf_time_elapsed):.2f}s'
         #     )
+
+    def _drop_point_contours(self, raw_frame, vis_frame):
+        """Hectic sketchy temporary evac point finder."""
+        green_return = []
+        red_return = []
+
+        lower_green = np.array([40, 100, 100])
+        upper_green = np.array([80, 255, 255])
+        lower_red1 = np.array([0, 200, 100])
+        upper_red1 = np.array([10, 255, 255])
+        lower_red2 = np.array([170, 200, 100])
+        upper_red2 = np.array([180, 255, 255])
+        min_tray_size = 10000
+
+        # evac_image = cv2.resize(raw_frame, (640, 480))
+        evac_image = cv2.cvtColor(raw_frame, cv2.COLOR_BGR2HSV)
+        evac_image = cv2.GaussianBlur(evac_image, (5, 5), 0)
+
+        green_evac_image = cv2.inRange(evac_image, lower_green, upper_green)
+        g_contours, g_heirarchy = cv2.findContours(
+            green_evac_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+        )
+        for contour in g_contours:
+            # self.get_logger().info(f'Contour with area {cv2.contourArea(contour)}')
+            if cv2.contourArea(contour) > min_tray_size:
+                gx, gy, gw, gh = cv2.boundingRect(contour)
+                gxc = int(gx + (gw / 2))
+                gyc = int(gy + (gh / 2))
+                cv2.rectangle(vis_frame, (gx, gy), (gx + gw, gy + gh), (0, 255, 0), 3)
+                cv2.circle(vis_frame, (gxc, gyc), 2, (0, 0, 255), -1)
+
+                green_return = ['green', gxc, gyc, gw, gh]
+
+            # cv2.drawContours(vis_frame, g_contours, -1, (255, 0, 0), 3)
+
+        red_evac_image1 = cv2.inRange(evac_image, lower_red1, upper_red1)
+        red_evac_image2 = cv2.inRange(evac_image, lower_red2, upper_red2)
+        red_evac = cv2.bitwise_or(red_evac_image1, red_evac_image2)
+        r_contours, r_heirarchy = cv2.findContours(
+            red_evac, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+        )
+        for contour in r_contours:
+            # self.get_logger().info(f'Contour with area {cv2.contourArea(contour)}')
+            if cv2.contourArea(contour) > min_tray_size:
+                rx, ry, rw, rh = cv2.boundingRect(contour)
+                rxc = int(rx + (rw / 2))
+                ryc = int(ry + (rh / 2))
+                cv2.rectangle(vis_frame, (rx, ry), (rx + rw, ry + rh), (0, 0, 255), 3)
+                cv2.circle(vis_frame, (rxc, ryc), 2, (0, 0, 255), -1)
+
+                red_return = ['red', rxc, ryc, rw, rh]
+
+            # cv2.drawContours(vis_frame, r_contours, -1, (255, 0, 0), 3)
+
+        return [green_return, red_return]
 
     def _inference_callback(self, completion_info, output_buffer=None, display_frame=None):
 
@@ -300,6 +390,17 @@ class VisionNode(Node):
                         'class_id': class_id,
                         'class_name': class_name,
                     })
+
+                    # self.get_logger().info(
+                    #     f'kept {class_name}: score={score:.3f}, box={[y1, x1, y2, x2]}'
+                    # )
+
+                # else:
+                #     self.get_logger().info(
+                #         f'dropped {class_name}: score={score:.3f}, box={[y1, x1, y2, x2]}'
+                #     )
+
+        # self.get_logger().info(f'Completion info: {completion_info}')
 
         # Push both the frame and its matching detections to the main thread
         if not self.results_queue.full():
