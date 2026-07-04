@@ -67,6 +67,7 @@ class TRescue(LifecycleNode):
 
         self.data = None
         self.balls_found = 0
+        self.isRescueDone = False
 
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Configuring ml_rescue node...')
@@ -97,6 +98,7 @@ class TRescue(LifecycleNode):
         self.state_started = False
         self.data = None
         self.last_data = None
+        self.isRescueDone = False
 
         if self.timer:
             self.timer.reset()
