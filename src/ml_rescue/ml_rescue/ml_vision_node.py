@@ -184,7 +184,7 @@ class VisionNode(Node):
             detection_msg.header.frame_id = image_header.frame_id
 
             for ball in latest_balls:
-                self.get_logger().info('Ball detected')
+                # self.get_logger().info('Ball detected')
                 y1, x1, y2, x2 = ball['box']
                 score = ball['score']
                 # material = ball['class_name']
