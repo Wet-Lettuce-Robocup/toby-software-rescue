@@ -47,6 +47,9 @@ class VisionNode(Node):
         self.rescue_active_srv = self.create_service(
             EnableInference, 'enable_inference', self.rescue_active_callback
         )
+        self.green_active_srv = self.create_service(
+            EnableInference, 'enable_green_scanning', self.green_active_callback
+        )
 
         self.fps = 5
         self.create_timer(1 / self.fps, self.inference_callback)
@@ -99,8 +102,20 @@ class VisionNode(Node):
 
     def rescue_active_callback(self, request, response):
         self.isActive = request.enabled
+        self.isRescue = request.enabled
         response.message = (
             'Inference enabled successfully' if request.enabled else 'Inference disabled'
+        )
+
+        self.get_logger().info(response.message)
+
+        return response
+
+    def green_active_callback(self, request, response):
+        self.isActive = request.enabled
+        self.isGreen = request.enabled
+        response.message = (
+            'Green dets enabled successfully' if request.enabled else 'Green dets disabled'
         )
 
         self.get_logger().info(response.message)
@@ -120,7 +135,10 @@ class VisionNode(Node):
             return
 
         # What I want to do is separate inference from red/green contours to hopefully boost fps
-        self.run_inference()
+        if self.isRescue:
+            self.run_inference()
+        elif self.isGreen:
+            self.runG
 
     def run_inference(self):
 
@@ -333,6 +351,73 @@ class VisionNode(Node):
             self.results_queue.put_nowait((display_frame, detections))
 
         # self.inferenceBusy = False
+
+    def lfg_green(self, raw_frame):
+        image_header = self.latest_image_header
+        raw_frame = self.latest_image.copy()
+        detection_msg = None
+
+        detection_msg = Detection2DArray()
+        detection_msg.header.stamp = image_header.stamp
+        detection_msg.header.frame_id = image_header.frame_id
+
+        green = self._drop_point_contours(raw_frame)
+
+        for i in green:
+            if len(i) > 0:
+                detection = Detection2D()
+                detection.header = detection_msg.header
+
+                detection.bbox.center.position.x = float(i[1])
+                detection.bbox.center.position.y = float(i[2])
+                detection.bbox.size_x = float(i[3])
+                detection.bbox.size_y = float(i[4])
+
+                hypothesis = ObjectHypothesisWithPose()
+                hypothesis.hypothesis.class_id = i[0]
+
+                detection.results.append(hypothesis)
+                detection_msg.detections.append(detection)
+
+        if detection_msg.detections:
+            # self.get_logger().info('- - - Publishing detections - - -')
+            self.inference_pub.publish(detection_msg)
+
+    def _drop_point_contours(self, raw_frame):
+        """Hectic sketchy temporary evac point finder."""
+        green_return = []
+
+        lower_green = np.array([40, 100, 100])
+        upper_green = np.array([80, 255, 255])
+
+        min_tray_size = 10000
+
+        evac_image = cv2.cvtColor(raw_frame, cv2.COLOR_BGR2HSV)
+        evac_image = cv2.GaussianBlur(evac_image, (5, 5), 0)
+
+        green_evac_image = cv2.inRange(evac_image, lower_green, upper_green)
+        g_contours, g_heirarchy = cv2.findContours(
+            green_evac_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+        )
+        for contour in g_contours:
+            # self.get_logger().info(f'Contour with area {cv2.contourArea(contour)}')
+            if cv2.contourArea(contour) > min_tray_size:
+                gx, gy, gw, gh = cv2.boundingRect(contour)
+                gxc = int(gx + (gw / 2))
+                gyc = int(gy + (gh / 2))
+                cv2.rectangle(raw_frame, (gx, gy), (gx + gw, gy + gh), (0, 255, 0), 3)
+                cv2.circle(raw_frame, (gxc, gyc), 2, (0, 0, 255), -1)
+
+                green_return = ['green', gxc, gyc, gw, gh]
+
+            # cv2.drawContours(vis_frame, g_contours, -1, (255, 0, 0), 3)
+
+            # cv2.drawContours(vis_frame, r_contours, -1, (255, 0, 0), 3)
+
+        if self.debug:
+            self.out.write(raw_frame)
+
+        return green_return
 
 
 def main(args=None):

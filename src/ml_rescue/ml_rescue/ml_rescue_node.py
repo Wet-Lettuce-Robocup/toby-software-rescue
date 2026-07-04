@@ -13,7 +13,7 @@ from rclpy.subscription import Subscription
 from rclpy.timer import Timer
 from rescue_msgs.srv import EnableInference, SetRescueState
 from robot_msgs.srv import Inference as SendInference
-from std_msgs.msg import String
+from std_msgs.msg import Bool, String
 from vision_msgs.msg import Detection2DArray
 
 
@@ -21,10 +21,8 @@ class States(Enum):
     ENTER = 0
     SCAN = 1
     TARGET_BALL = 2
-    GRAB_BALL = 3
-    TARGET_DROPZONE = 4
-    DUMP_DROPZONE = 5
-    EXIT = 6
+    TARGET_DROPZONE = 3
+    EXIT = 4
 
 
 class TRescue(LifecycleNode):
@@ -39,18 +37,19 @@ class TRescue(LifecycleNode):
         self.current_state = States.ENTER
         self.state_started = False
 
-        self.isRobot = False
+        self.isRobot = True
         self.isActive = False
 
         self.pub: LifecyclePublisher | None = None
         self.timer: Timer | None = None
         self.vision_sub: Subscription | None = None
-
+        self.rescue_state_sub: Subscription | None = None
         self.rescue_state_srv = self.create_service(
             SetRescueState, 'set_rescue_state', self.set_rescue_state_callback
         )
         self.inference_srv = None
         self.enable_inference = self.create_client(EnableInference, 'enable_inference')
+        self.enable_green_scan = self.create_client(EnableInference, 'enable_green_scanning')
         # self.robot = Movement(self)
 
         self.dw = 1536
@@ -81,6 +80,10 @@ class TRescue(LifecycleNode):
         self.inference_srv = self.create_service(
             SendInference, 'detections', self.send_inference_data
         )
+        self.rescue_state_sub = self.create_subscription(
+            Bool, '/look_for_green', self.check_rescue_done_callback, 10
+        )
+
         self.timer = self.create_timer(0.05, self.state_loop)
         self.timer.cancel()
 
@@ -103,6 +106,7 @@ class TRescue(LifecycleNode):
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Deactivating ml_rescue node...')
         self.set_inference(False)
+        self.set_green(False)
         self.isActive = False
 
         if self.timer:
@@ -118,10 +122,13 @@ class TRescue(LifecycleNode):
             self.destroy_publisher(self.pub)
         if self.vision_sub is not None:
             self.destroy_subscriber(self.vision_sub)
+        if self.rescue_state_sub is not None:
+            self.destroy_subscriber(self.rescue_state_sub)
 
         self.timer = None
         self.pub = None
         self.vision_sub = None
+        self.rescue_state_sub = None
 
         return TransitionCallbackReturn.SUCCESS
 
@@ -152,28 +159,11 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Enabling inference and scanning for ball')
                 self.state_started = True
 
-                # scanning = True
                 self.data = []
 
                 self.set_inference(True)
 
-                # while scanning:
-                #     if self.data is None or self.data == []:
-                #         # Spin robot a little bit
-                #         time.sleep(0.1)
-
-                #     else:
-                #         # stop spinning
-                #         first_object = self.data[0]
-                #         self.get_logger().info(f'data is {self.data}')
-                #         self.get_logger().info(
-                #             f'First object detected is of type: {first_object[0]}, '
-                #             f'and there were {len(self.data)} objects detected.'
-                #         )
-
-                # self.set_inference(False)
-
-                # self.transition_to_state(States.TARGET_BALL)
+                self.transition_to_state(States.TARGET_BALL)
 
         elif self.current_state == States.TARGET_BALL:
             # Move towards ball
@@ -181,16 +171,8 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Targetting a ball')
                 self.state_started = True
 
-                self.transition_to_state(States.GRAB_BALL)
-
-        elif self.current_state == States.GRAB_BALL:
-            # Pick up ball
-            if not self.state_started:
-                self.get_logger().info('Grabbing ball')
-                self.state_started = True
-
+            if self.isRescueDone:
                 self.set_inference(False)
-
                 self.transition_to_state(States.TARGET_DROPZONE)
 
         elif self.current_state == States.TARGET_DROPZONE:
@@ -198,18 +180,10 @@ class TRescue(LifecycleNode):
             if not self.state_started:
                 self.get_logger().info('Targetting evacuation point')
                 self.state_started = True
+                self.set_green(True)
 
-                self.set_inference(True)
-
-                self.transition_to_state(States.DUMP_DROPZONE)
-
-        elif self.current_state == States.DUMP_DROPZONE:
-            # Release balls
-            if not self.state_started:
-                self.get_logger().info('Releasing balls')
-                self.state_started = True
-
-                self.set_inference(False)
+            if not self.isRescueDone:
+                self.set_green(False)
 
                 self.transition_to_state(States.EXIT)
 
@@ -219,11 +193,13 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Exiting rescue.....')
                 self.state_started = True
 
-                self.set_inference(True)
+                # self.set_inference(True)
                 if self.isRobot:
                     # self.robot.drive(0.5)
                     pass
                 self.set_inference(False)
+                self.set_green(False)
+
         else:
             self.get_logger().warn('Invalid rescue state detected')
 
@@ -287,12 +263,33 @@ class TRescue(LifecycleNode):
         self.last_data = old_data
         self.data = current_data
 
+    def check_rescue_done_callback(self, msg):
+        if msg == True:
+            self.isRescueDone = True
+            self.get_logger().info(f'Rescue done = {self.isRescueDone}')
+        elif msg == False:
+            self.isRescueDone = False
+            self.get_logger().info(f'Rescue done = {self.isRescueDone}')
+        else:
+            self.get_logger().info('Failed to check if rescue is done, invalid message')
+
     def set_inference(self, enabled: bool):
 
         request = EnableInference.Request()
         request.enabled = enabled
 
         future = self.enable_inference.call_async(request)
+
+        self.data = None
+
+        return future
+
+    def set_green(self, enabled: bool):
+
+        request = EnableInference.Request()
+        request.enabled = enabled
+
+        future = self.enable_green_scan.call_async(request)
 
         self.data = None
 
