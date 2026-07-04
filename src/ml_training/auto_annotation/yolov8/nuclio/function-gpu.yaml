@@ -1,0 +1,50 @@
+metadata:
+  name: custom-model-yolov8
+  namespace: cvat
+  annotations:
+    name: custom-model-yolov8
+    type: detector
+    framework: pytorch
+    spec: |
+      [
+        { "id": 0, "name": "ball" }
+      ]
+
+spec:
+  description: custom-model-yolov8
+  runtime: 'python:3.10'
+  handler: main:handler
+  eventTimeout: 30s
+  build:
+    image: custom-model-yolov8:latest-gpu
+    baseImage: nvidia/cuda:12.6.3-cudnn-runtime-ubuntu22.04
+
+    directives:
+      preCopy:
+        - kind: RUN
+          value: apt-get update && apt-get install --no-install-recommends -y wget python3-pip python-is-python3 && rm -rf /var/lib/apt/lists/*
+        - kind: WORKDIR
+          value: /opt/nuclio
+        - kind: RUN
+          value: pip install --cache-dir opencv-python-headless pillow pyyaml --no-cache-dir
+        - kind: WORKDIR
+          value: /opt/nuclio
+
+  triggers:
+    myHttpTrigger:
+      numWorkers: 1
+      kind: 'http'
+      workerAvailabilityTimeoutMilliseconds: 10000
+      attributes:
+        maxRequestBodySize: 33554432 # 32MB
+
+  resources:
+    limits:
+      nvidia.com/gpu: 1
+
+  platform:
+    attributes:
+      restartPolicy:
+        name: always
+        maximumRetryCount: 3
+      mountMode: volume

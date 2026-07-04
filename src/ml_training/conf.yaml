@@ -1,7 +1,8 @@
-path: ml_rescue/ml_training
+path: src/ml_training
 
 train: images/train
 val: images/val
 
 names:
-  0: 'ball'
+  0: 'black'
+  1: 'silver'

@@ -1,5 +1,6 @@
 from enum import Enum
 import math
+# import time
 
 import rclpy
 from rclpy.lifecycle import (
@@ -92,6 +93,7 @@ class TRescue(LifecycleNode):
         self.current_state = States.ENTER
         self.state_started = False
         self.data = None
+        self.last_data = None
 
         if self.timer:
             self.timer.reset()
@@ -150,26 +152,28 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Enabling inference and scanning for ball')
                 self.state_started = True
 
-                scanning = True
+                # scanning = True
+                self.data = []
 
                 self.set_inference(True)
 
-                while scanning:
-                    if self.data is None:
-                        # Spin robot a little bit
-                        pass
+                # while scanning:
+                #     if self.data is None or self.data == []:
+                #         # Spin robot a little bit
+                #         time.sleep(0.1)
 
-                    else:
-                        # stop spinning
-                        first_object = self.data[0]
-                        self.get_logger().info(
-                            f'First object detected is of type: {first_object[0]}, '
-                            f'and there were {len(self.data)} objects detected.'
-                        )
+                #     else:
+                #         # stop spinning
+                #         first_object = self.data[0]
+                #         self.get_logger().info(f'data is {self.data}')
+                #         self.get_logger().info(
+                #             f'First object detected is of type: {first_object[0]}, '
+                #             f'and there were {len(self.data)} objects detected.'
+                #         )
 
-                self.set_inference(False)
+                # self.set_inference(False)
 
-                self.transition_to_state(States.TARGET_BALL)
+                # self.transition_to_state(States.TARGET_BALL)
 
         elif self.current_state == States.TARGET_BALL:
             # Move towards ball
@@ -228,11 +232,15 @@ class TRescue(LifecycleNode):
         self.state_started = False
 
     def inference_callback(self, msg):
+        old_data = self.data if self.data is not None else []
+
         if len(msg.detections) == 0:
-            self.get_logger().warn('Nothing detected')
+            # self.get_logger().warn('Nothing detected')
+            self.last_data = old_data
+            self.data = None
             return
 
-        data = []
+        current_data = []
 
         for detection in msg.detections:
             # Skip detections with no classification
@@ -243,29 +251,41 @@ class TRescue(LifecycleNode):
             class_id = result.hypothesis.class_id
             confidence = result.hypothesis.score
 
-            if class_id != 'ball':
-                continue
-
-            center_x = detection.bbox.center.position.x
-            # center_y = detection.bbox.center.position.y
-
+            centre_x = detection.bbox.center.position.x
+            # centre_y = detection.bbox.center.position.y
             width = detection.bbox.size_x
             height = detection.bbox.size_y
 
+            if class_id in ['ball', 'silver', 'black']:
+                average_dimension = (width + height) / 2
+                distance = (self.fx * self.ball_radius) / average_dimension
+
+            elif class_id in ['red', 'green']:
+                distance = (self.fy * 0.06) / height
+
+            else:
+                self.get_logger().warn(f'Class id is not valid: {class_id}')
+                continue
+
+            angle = math.atan((centre_x - self.cx) / self.fx)
+
             # self.get_logger().info(
-            #     f'Ball: x={center_x:.1f}, y={center_y:.1f}, '
+            #     f'Ball: x={centre_x:.1f}, y={centre_y:.1f}, '
             #     f'w={width:.1f}, h={height:.1f}, conf={confidence:.2f}'
             # )
 
-            average_dimension = (width + height) / 2
+            self.get_logger().info(
+                f'Distance to {class_id}: {distance:.2f}m at angle: {angle:.2f}'
+            )
 
-            distance = (self.fx * self.ball_radius) / average_dimension
-            angle = math.atan((center_x - self.cx) / self.fx)
+            current_data.append([class_id, confidence, distance, angle, centre_x])
 
-            self.get_logger().info(f'Distance to ball: {distance:.2f}, Angle to ball: {angle:.2f}')
-            data.append([class_id, confidence, distance, angle, center_x])
+        if current_data == old_data:
+            # self.get_logger().warn("Data hasn't changed!!")
+            return
 
-        self.data = data
+        self.last_data = old_data
+        self.data = current_data
 
     def set_inference(self, enabled: bool):
 
@@ -274,42 +294,55 @@ class TRescue(LifecycleNode):
 
         future = self.enable_inference.call_async(request)
 
+        self.data = None
+
         return future
 
     def send_inference_data(self, request, response):
         data = self.data
+        self.data = None  # Clear self.data once it is sent, otherwise it may send stale data.
         all_publish_data = []
 
-        if request.message != 'whereball' or data is None or len(data) == 0:
+        if request.message != 'whereball':
             response.success = False
-            self.get_logger().info(
-                'you landon the request is not valid or I do not have any data for you'
-            )
+            self.get_logger().warn('The request is not valid')
+            return response
+
+        if data is None or len(data) == 0:
+            response.success = False
+            self.get_logger().warn('No data to send!')
             return response
 
         for i in data:
+            # self.get_logger().info(f'data: {i}')
             if 'silver' in i[0] or 'ball' in i[0]:  # Append silver balls first
                 all_publish_data.append(i)
+                # self.get_logger().info('Ball detected, sending you a ball')
 
         for i in data:
             if 'black' in i[0]:  # Ensures black balls are sent after silver balls
                 all_publish_data.append(i)
 
+        for i in data:
+            if 'green' in i[0] or 'red' in i[0]:  # Ensures evac points are sent after all balls
+                all_publish_data.append(i)
+
         if not all_publish_data:
+            self.get_logger().warn('No data to publish!')
             response.success = False
             return response
 
-        for i in all_publish_data:
+        for i in enumerate(all_publish_data):
             valid_publish_data = all_publish_data[i]
 
-            response.type = valid_publish_data[0]
-            response.confidence = valid_publish_data[1]
-            response.distance = valid_publish_data[2]
-            response.bearing = valid_publish_data[3]
-            response.cx = valid_publish_data[4]
+            response.type.append(valid_publish_data[0])
+            response.confidence.append(valid_publish_data[1])
+            response.distance.append(valid_publish_data[2])
+            response.bearing.append(valid_publish_data[3])
+            response.cx.append(valid_publish_data[4])
             response.success = True
 
-        self.get_logger().info(f'Publishing to bain the following: {all_publish_data}')
+        self.get_logger().info(f'Publishing the following: {all_publish_data}')
 
         return response
 
