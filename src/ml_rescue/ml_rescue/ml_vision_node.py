@@ -262,8 +262,8 @@ class VisionNode(Node):
                         2,
                     )
 
-            if latest_balls is None or len(latest_balls) == 0:
-                self.get_logger().info('no balls detected')
+            # if latest_balls is None or len(latest_balls) == 0:
+            #     self.get_logger().info('no balls detected')
 
             # inf_time_elapsed = time.time() - start_time
             # if self.debug:
