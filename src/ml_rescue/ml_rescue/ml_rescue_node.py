@@ -332,7 +332,7 @@ class TRescue(LifecycleNode):
             response.success = False
             return response
 
-        for i in range(len(all_publish_data)):
+        for i in enumerate(all_publish_data):
             valid_publish_data = all_publish_data[i]
 
             response.type.append(valid_publish_data[0])
