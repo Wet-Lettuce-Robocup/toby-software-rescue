@@ -39,7 +39,7 @@ class TRescue(LifecycleNode):
         self.current_state = States.ENTER
         self.state_started = False
 
-        self.isRobot = False
+        self.isRobot = True
         self.isActive = False
 
         self.pub: LifecyclePublisher | None = None

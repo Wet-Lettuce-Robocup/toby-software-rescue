@@ -15,7 +15,10 @@ picam2 = Picamera2()
 picam2.configure(
     picam2.create_video_configuration(
         sensor={'output_size': (2304, 1296)},  # 16:9 aspect ratio
-        main={'format': 'RGB888', 'size': (1536, 864)},  # Lower resolution for better performance
+        main={
+            'format': 'RGB888',
+            'size': (384, 216),
+        },  # Even lower resolution for better performance
         controls={'FrameRate': 10},
         transform=Transform(hflip=True, vflip=True),  # 180 degree rotation
     )
