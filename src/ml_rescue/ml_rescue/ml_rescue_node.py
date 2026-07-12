@@ -11,9 +11,11 @@ from rclpy.lifecycle import (
 )
 from rclpy.subscription import Subscription
 from rclpy.timer import Timer
+from rclpy.publisher import Publisher
 from rescue_msgs.srv import EnableInference, SetRescueState
 from robot_msgs.srv import Inference as SendInference
-from std_msgs.msg import String
+from geometry_msgs.msg import Twist
+from std_msgs.msg import Bool, Float32, Int32, String
 from vision_msgs.msg import Detection2DArray
 
 
@@ -46,6 +48,17 @@ class TRescue(LifecycleNode):
         self.timer: Timer | None = None
         self.vision_sub: Subscription | None = None
 
+        self.cmd_vel_pub: Publisher | None = None
+        self.claw_pub: Publisher | None = None
+        self.lift_pub: Publisher | None = None
+        self.gate_pub: Publisher | None = None
+        self.rescue_active_pub: Publisher | None = None
+        self.led_pub: Publisher | None = None
+
+        self.front_tof_subscriber: Subscription | None = None
+        self.claw_tof_subscriber: Subscription | None = None
+        self.side_tof_subscriber: Subscription | None = None
+
         self.rescue_state_srv = self.create_service(
             SetRescueState, 'set_rescue_state', self.set_rescue_state_callback
         )
@@ -69,6 +82,10 @@ class TRescue(LifecycleNode):
         self.data = None
         self.balls_found = 0
 
+        self.front_tof_dist = None
+        self.claw_tof_dist = None
+        self.side_tof_dist = None
+
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Configuring ml_rescue node...')
         self.pub = self.create_lifecycle_publisher(String, 'rescue_data', 10)
@@ -84,6 +101,27 @@ class TRescue(LifecycleNode):
         self.timer = self.create_timer(0.05, self.state_loop)
         self.timer.cancel()
 
+        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.claw_pub = self.create_publisher(
+            Float32, '/servo/grab', 10
+        )  # 0.5 is open, 1 is closed
+        self.lift_pub = self.create_publisher(Float32, '/servo/lift', 10)  # up is 2.5, down is 0.2
+        self.gate_pub = self.create_publisher(
+            Float32, '/servo/gate', 10
+        )  # open is 2.3, closed is 0.8
+        self.rescue_active_pub = self.create_publisher(Bool, '/rescue_active', 10)
+        self.led_pub = self.create_publisher(Int32, '/front_led/target_brightness', 10)
+
+        self.front_tof_subscriber = self.create_subscription(
+            Int32, '/tof/front', self.front_tof_callback, 10
+        )
+        self.claw_tof_subscriber = self.create_subscription(
+            Int32, '/tof/claw', self.claw_tof_callback, 10
+        )
+        self.side_tof_subscriber = self.create_subscription(
+            Int32, '/tof/side', self.side_tof_callback, 10
+        )
+
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: State) -> TransitionCallbackReturn:
@@ -94,6 +132,10 @@ class TRescue(LifecycleNode):
         self.state_started = False
         self.data = None
         self.last_data = None
+        self.balls_found = 0
+        self.front_tof_dist = None
+        self.claw_tof_dist = None
+        self.side_tof_dist = None
 
         if self.timer:
             self.timer.reset()
@@ -103,6 +145,8 @@ class TRescue(LifecycleNode):
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Deactivating ml_rescue node...')
         self.set_inference(False)
+        if self.led_pub is not None:
+            self.led_pub.publish(Int32(data=0))
         self.isActive = False
 
         if self.timer:
@@ -152,28 +196,27 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Enabling inference and scanning for ball')
                 self.state_started = True
 
-                # scanning = True
                 self.data = []
 
                 self.set_inference(True)
 
-                # while scanning:
-                #     if self.data is None or self.data == []:
-                #         # Spin robot a little bit
-                #         time.sleep(0.1)
+                if self.data is None or self.data == []:
+                    # Spin robot a little bit
+                    robot.spin(1)
 
-                #     else:
-                #         # stop spinning
-                #         first_object = self.data[0]
-                #         self.get_logger().info(f'data is {self.data}')
-                #         self.get_logger().info(
-                #             f'First object detected is of type: {first_object[0]}, '
-                #             f'and there were {len(self.data)} objects detected.'
-                #         )
+                else:
+                    # stop spinning
+                    first_object = self.data[0]
+                    self.get_logger().info(f'data is {self.data}')
+                    self.get_logger().info(
+                        f'First object detected is of type: {first_object[0]}, '
+                        f'and there were {len(self.data)} objects detected.'
+                    )
 
-                # self.set_inference(False)
+                    if isValid:
+                        self.set_inference(False)
 
-                # self.transition_to_state(States.TARGET_BALL)
+                        self.transition_to_state(States.TARGET_BALL)
 
         elif self.current_state == States.TARGET_BALL:
             # Move towards ball
@@ -181,6 +224,8 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Targetting a ball')
                 self.state_started = True
 
+            if ballIsLocked:
+                self.set_inference(False)
                 self.transition_to_state(States.GRAB_BALL)
 
         elif self.current_state == States.GRAB_BALL:
@@ -188,8 +233,6 @@ class TRescue(LifecycleNode):
             if not self.state_started:
                 self.get_logger().info('Grabbing ball')
                 self.state_started = True
-
-                self.set_inference(False)
 
                 self.transition_to_state(States.TARGET_DROPZONE)
 
