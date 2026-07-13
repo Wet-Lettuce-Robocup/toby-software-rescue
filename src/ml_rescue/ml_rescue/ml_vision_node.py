@@ -119,7 +119,6 @@ class VisionNode(Node):
             self.get_logger().warn('No image received, is the front camera working?')
             return
 
-        # What I want to do is separate inference from red/green contours to hopefully boost fps
         self.run_inference()
 
     def run_inference(self):

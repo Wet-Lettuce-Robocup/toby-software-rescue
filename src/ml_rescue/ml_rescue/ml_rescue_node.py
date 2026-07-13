@@ -1,11 +1,10 @@
 from enum import Enum
 import math
-# import time
 
 import rclpy
+from rclpy.action import ActionClient
 from rclpy.lifecycle import (
     LifecycleNode,
-    LifecyclePublisher,
     State,
     TransitionCallbackReturn,
 )
@@ -13,9 +12,10 @@ from rclpy.subscription import Subscription
 from rclpy.timer import Timer
 from rclpy.publisher import Publisher
 from rescue_msgs.srv import EnableInference, SetRescueState
+from robot_msgs.msg import MoveTime
 from robot_msgs.srv import Inference as SendInference
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Bool, Float32, Int32, String
+from std_msgs.msg import Bool, Float32, Int32
 from vision_msgs.msg import Detection2DArray
 
 
@@ -36,15 +36,27 @@ class TRescue(LifecycleNode):
     Lifecycle node
     """
 
+    dw = 1536
+    dh = 864
+    # self.f_length = 2.75
+    ball_radius = 0.05  # m
+    fx = 683.31285  # (self.dw * self.f_length) / 6.54
+    fy = 683.10689  # (self.dh * self.f_length) / 3.63
+    cx = 764.89803
+    cy = 408.4118
+
+    target_x = 400  # to change
+    target_width = 400  # to change
+
     def __init__(self) -> None:
         super().__init__('ml_rescue')
         self.current_state = States.ENTER
         self.state_started = False
 
-        self.isRobot = True
         self.isActive = False
 
-        self.pub: LifecyclePublisher | None = None
+        self.robot: Movement | None = None
+
         self.timer: Timer | None = None
         self.vision_sub: Subscription | None = None
 
@@ -64,22 +76,9 @@ class TRescue(LifecycleNode):
         )
         self.inference_srv = None
         self.enable_inference = self.create_client(EnableInference, 'enable_inference')
-        # self.robot = Movement(self)
-
-        self.dw = 1536
-        self.dh = 864
-        # self.f_length = 2.75
-        self.ball_radius = 0.05  # m
-        self.fx = 683.31285  # (self.dw * self.f_length) / 6.54
-        self.fy = 683.10689  # (self.dh * self.f_length) / 3.63
-        self.cx = 764.89803
-        self.cy = 408.4118
-
-        self.obstacle: list = []
-        self.target_distance = 0
-        self.target_angle = 0
 
         self.data = None
+        self.target_object = None
         self.balls_found = 0
 
         self.front_tof_dist = None
@@ -88,7 +87,8 @@ class TRescue(LifecycleNode):
 
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Configuring ml_rescue node...')
-        self.pub = self.create_lifecycle_publisher(String, 'rescue_data', 10)
+
+        self.robot = Movement(self)
         self.vision_sub = self.create_subscription(
             Detection2DArray,
             'inference_stream',
@@ -158,8 +158,6 @@ class TRescue(LifecycleNode):
         self.get_logger().info('Cleaning up ml_rescue node...')
         if self.timer is not None:
             self.destroy_timer(self.timer)
-        if self.pub is not None:
-            self.destroy_publisher(self.pub)
         if self.vision_sub is not None:
             self.destroy_subscriber(self.vision_sub)
 
@@ -184,9 +182,7 @@ class TRescue(LifecycleNode):
                 self.state_started = True
 
                 # move into centre of rescue zone
-                if self.isRobot:
-                    # self.robot.drive(0.2)
-                    pass
+                self.robot.drive(0.2)
 
                 self.transition_to_state(States.SCAN)
 
@@ -202,21 +198,37 @@ class TRescue(LifecycleNode):
 
                 if self.data is None or self.data == []:
                     # Spin robot a little bit
-                    robot.spin(1)
+                    self.start_moving(0, 10)
+                    return
 
+            # stop spinning
+            self.stop_moving()
+            self.get_logger().info(f'{len(self.data)} objects detected.')
+
+            self.target_object = None
+
+            for i in self.data:
+                obj_type = i[0]
+                if self.balls_found == 3:
+                    if obj_type == 'green':
+                        pass
+                    elif obj_type == 'red':
+                        print('a')
+                elif (
+                    obj_type == 'silver'
+                    and self.balls_found in [0, 1]
+                    or obj_type == 'black'
+                    and self.balls_found == 2
+                ):
+                    self.target_object = i
                 else:
-                    # stop spinning
-                    first_object = self.data[0]
-                    self.get_logger().info(f'data is {self.data}')
-                    self.get_logger().info(
-                        f'First object detected is of type: {first_object[0]}, '
-                        f'and there were {len(self.data)} objects detected.'
-                    )
+                    self.get_logger().warn(f'What is this object {obj_type}')
 
-                    if isValid:
-                        self.set_inference(False)
-
-                        self.transition_to_state(States.TARGET_BALL)
+            if self.target_object is not None:
+                if self.balls_found < 3:
+                    self.transition_to_state(States.TARGET_BALL)
+                else:
+                    self.transition_to_state(States.TARGET_DROPZONE)
 
         elif self.current_state == States.TARGET_BALL:
             # Move towards ball
@@ -224,8 +236,22 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Targetting a ball')
                 self.state_started = True
 
+                self.grab_ball('open')
+
+                ballIsLocked = False
+
+            bearing = self.target_object[3]
+            distance = self.target_object[2] - 0.05
+
+            self.robot.drive(0, bearing)  # need to test and see how far robot turns
+            self.robot.drive(distance)
+
+            ballIsLocked = True
+
             if ballIsLocked:
                 self.set_inference(False)
+                self.lift_ball('down')
+
                 self.transition_to_state(States.GRAB_BALL)
 
         elif self.current_state == States.GRAB_BALL:
@@ -234,7 +260,15 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Grabbing ball')
                 self.state_started = True
 
+                self.grab_ball('close')
+                self.balls_found += 1
+
+                self.lift_ball('up')
+
+            if self.balls_found == 3:
                 self.transition_to_state(States.TARGET_DROPZONE)
+            else:
+                self.transition_to_state(States.SCAN)
 
         elif self.current_state == States.TARGET_DROPZONE:
             # Move towards dropzone
@@ -262,11 +296,8 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Exiting rescue.....')
                 self.state_started = True
 
-                self.set_inference(True)
-                if self.isRobot:
-                    # self.robot.drive(0.5)
-                    pass
-                self.set_inference(False)
+                self.robot.drive(0.5)
+
         else:
             self.get_logger().warn('Invalid rescue state detected')
 
@@ -398,6 +429,173 @@ class TRescue(LifecycleNode):
             response.success = False
             response.message = f'Invalid state: {request.state}'
         return response
+
+    def start_moving(self, linear_x=0.0, angular_z=0.0):
+        if self.cmd_vel_pub is None:
+            return
+        twist = Twist()
+        twist.linear.x = float(linear_x)
+        twist.angular.z = float(angular_z)
+        self.cmd_vel_pub.publish(twist)
+
+    def stop_moving(self):
+        if self.cmd_vel_pub is not None:
+            self.start_moving(0, 0)
+
+    def grab_ball(self, state):
+        """State is either 'open' or 'close'."""
+        if state == 'open':
+            self.claw_pub.publish(data=Float32(0.5))
+        elif state == 'close':
+            self.claw_pub.publish(data=Float32(1))
+        else:
+            self.get_logger().warn('Invalid grab command')
+
+    def lift_ball(self, state):
+        """State is either 'up' or 'down'."""
+        if state == 'up':
+            self.lift_pub.publsh(data=Float32(2.5))
+        elif state == 'down':
+            self.lift_pub.publsh(data=Float32(0.2))
+        else:
+            self.get_logger().warn('Invalid lift command')
+
+    def open_gate(self, state):
+        """State is either 'open' or 'close'."""
+        if state == 'open':
+            self.lift_pub.publsh(data=Float32(2.3))
+        elif state == 'close':
+            self.lift_pub.publsh(data=Float32(0.8))
+        else:
+            self.get_logger().warn('Invalid gate command')
+
+
+class Movement:
+    def __init__(self, node):
+        self.node = node
+        self._move_client = ActionClient(node, MoveTime, 'move_time')
+        self.busy = False
+        self.current_angle = 0.0
+        self.distance_travelled = 0.0
+        self.angle_turned = 0.0
+        self._last_goal_vel = 0.0
+        self._last_goal_angular_vel = 0.0
+        self._last_goal_time = 0.0
+        self._sequence = None
+        self._on_complete = None
+
+    def drive(self, distance, angle=0, velocity=0.1):
+        linear_time = abs(distance) / abs(velocity) if velocity != 0 and distance != 0 else 0.0
+        angular_time = abs(angle) / abs(velocity) if velocity != 0 and angle != 0 else 0.0
+        time_required = max(linear_time, angular_time)
+
+        if time_required <= 0.0:
+            self.node.get_logger().warn('Drive called with zero distance and angle; ignoring')
+            return
+
+        goal = MoveTime.Goal()
+        goal.time = float(time_required)
+        linear_vel = math.copysign(velocity, distance) if distance != 0 else 0.0
+        angular_vel = math.copysign(velocity, angle) if angle != 0 else 0.0
+        goal.vel = float(linear_vel)
+        goal.angular_vel = float(angular_vel)
+        self._last_goal_vel = float(linear_vel)
+        self._last_goal_angular_vel = float(angular_vel)
+        self._last_goal_time = float(time_required)
+        self.busy = True
+
+        try:
+            available = self._move_client.wait_for_server(timeout_sec=2.0)
+        except Exception as e:
+            self.node.get_logger().error(f'wait_for_server exception: {e}')
+            self.busy = False
+            return
+
+        if not available:
+            self.node.get_logger().error('Action server "move_time" not available (timeout)')
+            self.busy = False
+            return
+
+        try:
+            self.send_goal_future = self._move_client.send_goal_async(
+                goal, feedback_callback=self.feedback_callback
+            )
+            self.send_goal_future.add_done_callback(self.goal_response_callback)
+        except Exception as e:
+            self.node.get_logger().error(f'Failed to send goal: {e}')
+            self.busy = False
+            return
+
+    def feedback_callback(self, feedback_msg):
+        feedback = feedback_msg.feedback
+        time_elapsed = getattr(feedback, 'time_elapsed', None)
+        if time_elapsed is not None:
+            te = float(time_elapsed)
+            te_sec = te * 1e-9 if te > 1e6 else te
+            self.distance_travelled = self._last_goal_vel * te_sec
+            self.angle_turned = self._last_goal_angular_vel * te_sec
+        else:
+            self.distance_travelled = getattr(
+                feedback, 'distance_travelled', self.distance_travelled
+            )
+            self.angle_turned = getattr(feedback, 'angle_turned', self.angle_turned)
+
+    def goal_response_callback(self, future):
+        try:
+            goal_handle = future.result()
+        except Exception as e:
+            self.node.get_logger().error(f'Goal response future exception: {e}')
+            self.busy = False
+            return
+
+        if not getattr(goal_handle, 'accepted', False):
+            self.node.get_logger().error('Movement Goal rejected')
+            self.busy = False
+            return
+
+        self.node.get_logger().info('Movement Goal accepted')
+        try:
+            self.get_result_future = goal_handle.get_result_async()
+            self.get_result_future.add_done_callback(self.result_callback)
+        except Exception as e:
+            self.node.get_logger().error(f'Failed to request result: {e}')
+            self.busy = False
+            return
+
+    def result_callback(self, future):
+        try:
+            res = future.result()
+            result = getattr(res, 'result', res)
+        except Exception as e:
+            self.node.get_logger().error(f'Get result future exception: {e}')
+            self.busy = False
+            return
+
+        success = getattr(result, 'success', None)
+        if success is True:
+            self.node.get_logger().info('Movement Goal success')
+        elif success is False:
+            self.node.get_logger().error('Movement Goal fail')
+        else:
+            self.node.get_logger().info(f'Movement Goal result: {result}')
+
+        self.busy = False
+        if self._on_complete is not None:
+            self._on_complete()
+
+    def _advance_sequence(self):
+        if self._sequence is None:
+            return
+        try:
+            next(self._sequence)
+        except StopIteration:
+            self._sequence = None
+            self._on_complete = None
+
+    def run_sequence(self, sequence_gen):
+        self._sequence = sequence_gen
+        self._on_complete = self._advance_sequence
+        self._advance_sequence()
 
 
 def main(args=None):
