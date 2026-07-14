@@ -5,4 +5,4 @@ string message
 
 # Response
 bool success
-rescue_msgs/Detection2DArray detections
+vision_msgs/Detection2DArray detections
