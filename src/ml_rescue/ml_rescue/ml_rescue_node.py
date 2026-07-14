@@ -1,6 +1,7 @@
 from enum import Enum
 import math
 
+from geometry_msgs.msg import Twist
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.lifecycle import (
@@ -9,14 +10,12 @@ from rclpy.lifecycle import (
     TransitionCallbackReturn,
 )
 from rclpy.subscription import Subscription
-from rclpy.timer import Timer
 from rclpy.publisher import Publisher
-from rescue_msgs.srv import EnableInference, SetRescueState
+from rclpy.timer import Timer
+from rescue_msgs.srv import InferenceDetections, SetRescueState
 from robot_msgs.msg import MoveTime
 from robot_msgs.srv import Inference as SendInference
-from geometry_msgs.msg import Twist
 from std_msgs.msg import Bool, Float32, Int32
-from vision_msgs.msg import Detection2DArray
 
 
 class States(Enum):
@@ -58,7 +57,6 @@ class TRescue(LifecycleNode):
         self.robot: Movement | None = None
 
         self.timer: Timer | None = None
-        self.vision_sub: Subscription | None = None
 
         self.cmd_vel_pub: Publisher | None = None
         self.claw_pub: Publisher | None = None
@@ -75,10 +73,14 @@ class TRescue(LifecycleNode):
             SetRescueState, 'set_rescue_state', self.set_rescue_state_callback
         )
         self.inference_srv = None
-        self.enable_inference = self.create_client(EnableInference, 'enable_inference')
+        self.rescue_detections_client = self.create_client(
+            InferenceDetections, 'rescue_detections'
+        )
 
         self.data = None
+        self.inference_returned = False
         self.target_object = None
+        # self.obstacles: list[list] = []
         self.balls_found = 0
 
         self.front_tof_dist = None
@@ -89,12 +91,6 @@ class TRescue(LifecycleNode):
         self.get_logger().info('Configuring ml_rescue node...')
 
         self.robot = Movement(self)
-        self.vision_sub = self.create_subscription(
-            Detection2DArray,
-            'inference_stream',
-            self.inference_callback,
-            10,
-        )
         self.inference_srv = self.create_service(
             SendInference, 'detections', self.send_inference_data
         )
@@ -144,7 +140,6 @@ class TRescue(LifecycleNode):
 
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Deactivating ml_rescue node...')
-        self.set_inference(False)
         if self.led_pub is not None:
             self.led_pub.publish(Int32(data=0))
         self.isActive = False
@@ -158,12 +153,8 @@ class TRescue(LifecycleNode):
         self.get_logger().info('Cleaning up ml_rescue node...')
         if self.timer is not None:
             self.destroy_timer(self.timer)
-        if self.vision_sub is not None:
-            self.destroy_subscriber(self.vision_sub)
 
         self.timer = None
-        self.pub = None
-        self.vision_sub = None
 
         return TransitionCallbackReturn.SUCCESS
 
@@ -194,12 +185,23 @@ class TRescue(LifecycleNode):
 
                 self.data = []
 
-                self.set_inference(True)
+                if self.balls_found == 3:
+                    self.request_inference('evacpoint')
+                else:
+                    self.request_inference('ball')
 
                 if self.data is None or self.data == []:
                     # Spin robot a little bit
                     self.start_moving(0, 10)
                     return
+
+            if not self.inference_returned:
+                return
+            elif self.data is None or len(self.data) == 0:
+                if self.balls_found == 3:
+                    self.request_inference('evacpoint')
+                else:
+                    self.request_inference('ball')
 
             # stop spinning
             self.stop_moving()
@@ -223,6 +225,7 @@ class TRescue(LifecycleNode):
                     self.target_object = i
                 else:
                     self.get_logger().warn(f'What is this object {obj_type}')
+                    # In future add handling for multiple obstacles so robot can dynamically avoid them
 
             if self.target_object is not None:
                 if self.balls_found < 3:
@@ -249,7 +252,6 @@ class TRescue(LifecycleNode):
             ballIsLocked = True
 
             if ballIsLocked:
-                self.set_inference(False)
                 self.lift_ball('down')
 
                 self.transition_to_state(States.GRAB_BALL)
@@ -265,9 +267,6 @@ class TRescue(LifecycleNode):
 
                 self.lift_ball('up')
 
-            if self.balls_found == 3:
-                self.transition_to_state(States.TARGET_DROPZONE)
-            else:
                 self.transition_to_state(States.SCAN)
 
         elif self.current_state == States.TARGET_DROPZONE:
@@ -286,8 +285,6 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Releasing balls')
                 self.state_started = True
 
-                self.set_inference(False)
-
                 self.transition_to_state(States.EXIT)
 
         elif self.current_state == States.EXIT:
@@ -305,8 +302,24 @@ class TRescue(LifecycleNode):
         self.current_state = new_state
         self.state_started = False
 
-    def inference_callback(self, msg):
+    def request_inference(self, message):
+        request = InferenceDetections.Request()
+
+        request.message = message
+
+        self.inference_returned = False
+
+        self._parse_results(self.cli.call_async(request))
+
+    def _parse_results(self, msg):
+
         old_data = self.data if self.data is not None else []
+
+        if msg.success == False:
+            self.get_logger().info('inference returned false')
+            return
+
+        self.inference_returned = True
 
         if len(msg.detections) == 0:
             # self.get_logger().warn('Nothing detected')
@@ -355,22 +368,11 @@ class TRescue(LifecycleNode):
             current_data.append([class_id, confidence, distance, angle, centre_x])
 
         if current_data == old_data:
-            # self.get_logger().warn("Data hasn't changed!!")
+            self.get_logger().warn("Data hasn't changed!!")
             return
 
         self.last_data = old_data
         self.data = current_data
-
-    def set_inference(self, enabled: bool):
-
-        request = EnableInference.Request()
-        request.enabled = enabled
-
-        future = self.enable_inference.call_async(request)
-
-        self.data = None
-
-        return future
 
     def send_inference_data(self, request, response):
         data = self.data
@@ -471,6 +473,10 @@ class TRescue(LifecycleNode):
 
 
 class Movement:
+    """
+    Class that handles higher level robot movement.
+    """
+
     def __init__(self, node):
         self.node = node
         self._move_client = ActionClient(node, MoveTime, 'move_time')

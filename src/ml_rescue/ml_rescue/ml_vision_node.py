@@ -12,7 +12,7 @@ from hailo_platform import VDevice
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from rescue_msgs.srv import EnableInference
+from rescue_msgs.srv import InferenceDetections
 from sensor_msgs.msg import Image
 from vision_msgs.msg import (
     Detection2D,
@@ -43,16 +43,9 @@ class VisionNode(Node):
             self.image_callback,
             1,
         )
-        self.inference_pub = self.create_publisher(Detection2DArray, 'inference_stream', 10)
-        self.rescue_active_srv = self.create_service(
-            EnableInference, 'enable_inference', self.rescue_active_callback
+        self.rescue_detections_srv = self.create_service(
+            InferenceDetections, 'rescue_detections', self.inference_callback
         )
-
-        self.fps = 5
-        self.create_timer(1 / self.fps, self.inference_callback)
-
-        self.isActive = False
-        self.inferenceBusy = False
 
         self.bridge = CvBridge()
 
@@ -97,31 +90,32 @@ class VisionNode(Node):
         self.out = cv2.VideoWriter(pipeline, cv2.CAP_GSTREAMER, 0, self.fps, (self.dw, self.dh))
         self.get_logger().info(f'Video writer opened: {self.out.isOpened()}')
 
-    def rescue_active_callback(self, request, response):
-        self.isActive = request.enabled
-        response.message = (
-            'Inference enabled successfully' if request.enabled else 'Inference disabled'
-        )
+    # def rescue_active_callback(self, request, response):
+    #     self.isActive = request.enabled
+    #     response.message = (
+    #         'Inference enabled successfully' if request.enabled else 'Inference disabled'
+    #     )
 
-        self.get_logger().info(response.message)
+    #     self.get_logger().info(response.message)
 
-        return response
+    #     return response
 
     def image_callback(self, msg):
         self.latest_image_header = msg.header
         self.latest_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
 
-    def inference_callback(self):
-        if not self.isActive:
-            return
-
+    def inference_callback(self, request, response):
         if self.latest_image is None:
             self.get_logger().warn('No image received, is the front camera working?')
             return
 
-        self.run_inference()
-
-    def run_inference(self):
+        if request.message == 'ball':
+            mode = 1
+        elif request.message == 'evacpoint':
+            mode = 2
+        else:
+            self.get_logger().info(f'Invalid inference request {request.message}')
+            return
 
         # start_time = time.time()
 
@@ -195,20 +189,27 @@ class VisionNode(Node):
                 #     material = 'black'
                 #     # self.get_logger().info(f'Mean is {mean} detected as black')
 
-                detection = Detection2D()
-                detection.header = detection_msg.header
+                if (
+                    mode == 1
+                    and material in ['silver', 'black']
+                    or mode == 2
+                    and material in ['green', 'red']
+                    or material == 'obstacle'
+                ):
+                    detection = Detection2D()
+                    detection.header = detection_msg.header
 
-                detection.bbox.center.position.x = pxc
-                detection.bbox.center.position.y = pyc
-                detection.bbox.size_x = float(px2 - px1)
-                detection.bbox.size_y = float(py2 - py1)
+                    detection.bbox.center.position.x = pxc
+                    detection.bbox.center.position.y = pyc
+                    detection.bbox.size_x = float(px2 - px1)
+                    detection.bbox.size_y = float(py2 - py1)
 
-                hypothesis = ObjectHypothesisWithPose()
-                hypothesis.hypothesis.class_id = material
-                hypothesis.hypothesis.score = float(score)
+                    hypothesis = ObjectHypothesisWithPose()
+                    hypothesis.hypothesis.class_id = material
+                    hypothesis.hypothesis.score = float(score)
 
-                detection.results.append(hypothesis)
-                detection_msg.detections.append(detection)  # To be sent to ml_rescue_node
+                    detection.results.append(hypothesis)
+                    detection_msg.detections.append(detection)  # To be sent to ml_rescue_node
 
                 if self.debug:
                     pxc, pyc, px1, py1, px2, py2 = map(int, (pxc, pyc, px1, py1, px2, py2))
@@ -243,7 +244,13 @@ class VisionNode(Node):
 
         if detection_msg.detections:
             # self.get_logger().info('- - - Publishing detections - - -')
-            self.inference_pub.publish(detection_msg)
+            response.success = True
+            response.detections = detection_msg
+
+        else:
+            response.success = False
+
+        return response
 
         # time_elapsed = time.time() - start_time
         # if self.debug:
@@ -315,8 +322,10 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
-        vision_node.out.release()
-        vision_node.target.release()
+        if vision_node.out is not None:
+            vision_node.out.release()
+        if vision_node.target is not None:
+            vision_node.target.release()
         vision_node.destroy_node()
         rclpy.shutdown()
 

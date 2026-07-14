@@ -1,0 +1,8 @@
+# Request
+string message
+
+---
+
+# Response
+bool success
+rescue_msgs/Detection2DArray detections
