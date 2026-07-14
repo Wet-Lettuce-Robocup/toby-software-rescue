@@ -9,8 +9,8 @@ from rclpy.lifecycle import (
     State,
     TransitionCallbackReturn,
 )
-from rclpy.subscription import Subscription
 from rclpy.publisher import Publisher
+from rclpy.subscription import Subscription
 from rclpy.timer import Timer
 from rescue_msgs.srv import InferenceDetections, SetRescueState
 from robot_msgs.msg import MoveTime
@@ -225,7 +225,7 @@ class TRescue(LifecycleNode):
                     self.target_object = i
                 else:
                     self.get_logger().warn(f'What is this object {obj_type}')
-                    # In future add handling for multiple obstacles so robot can dynamically avoid them
+                    # In future add handling for multiple obstacles for avoidance
 
             if self.target_object is not None:
                 if self.balls_found < 3:
@@ -315,7 +315,7 @@ class TRescue(LifecycleNode):
 
         old_data = self.data if self.data is not None else []
 
-        if msg.success == False:
+        if msg.success is False:
             self.get_logger().info('inference returned false')
             return
 
@@ -473,9 +473,7 @@ class TRescue(LifecycleNode):
 
 
 class Movement:
-    """
-    Class that handles higher level robot movement.
-    """
+    """Class that handles higher level robot movement."""
 
     def __init__(self, node):
         self.node = node
