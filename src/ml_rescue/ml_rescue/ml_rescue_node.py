@@ -13,7 +13,7 @@ from rclpy.publisher import Publisher
 from rclpy.subscription import Subscription
 from rclpy.timer import Timer
 from rescue_msgs.srv import InferenceDetections, SetRescueState
-from robot_msgs.msg import MoveTime
+from robot_msgs.action import MoveTime
 from robot_msgs.srv import Inference as SendInference
 from std_msgs.msg import Bool, Float32, Int32
 

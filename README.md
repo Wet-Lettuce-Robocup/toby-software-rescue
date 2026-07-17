@@ -10,3 +10,6 @@ cd original-repo.git
 git push --mirror https://github.com/user/new-repo.git
 
 Repository can be found at [https://github.com/Wet-Lettuce-Robocup/toby-software-rescue](https://github.com/Wet-Lettuce-Robocup/toby-software-rescue)
+
+### Camera Calibration
+ros2 run camera_calibration cameracalibrator --size 8x6 --square 0.017 --no-service-check --ros-args -r camera:=/front_camera/camera_node/camera_info -r image:=/front_camera/camera_node/image_raw

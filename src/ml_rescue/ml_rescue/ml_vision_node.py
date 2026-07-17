@@ -49,6 +49,8 @@ class VisionNode(Node):
 
         self.bridge = CvBridge()
 
+        self.fps = 10
+
         self.latest_image = None
         self.latest_image_header = None
 
