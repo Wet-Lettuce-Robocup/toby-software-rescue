@@ -118,6 +118,7 @@ class TRescue(LifecycleNode):
             Int32, '/tof/side', self.side_tof_callback, 10
         )
 
+        self.get_logger().info('Configuring conmplete')
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: State) -> TransitionCallbackReturn:
