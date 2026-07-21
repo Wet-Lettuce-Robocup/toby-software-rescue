@@ -1,4 +1,4 @@
-# 15/06/2026 - 21/06/2026
+# 06/07/2026 - 12/07/2026
 
 ### What I worked on:
 2-3 sentences summarising what you built, designed or researched this week
