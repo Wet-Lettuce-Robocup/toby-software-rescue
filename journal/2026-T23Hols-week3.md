@@ -1,16 +1,16 @@
 # 13/07/2026 - 19/07/2026
 
 ### What I worked on:
-2-3 sentences summarising what you built, designed or researched this week
+Continued to work on logic for rescue, including targetting and grabbing balls. Ran a quick test on the robot, fixed up some small errors. I also changed inference to only happen when it is requested using a service, to hopefully improve performance since it does not need to occur at a set fps, and added support for green/red detection when retrain the model.
 
 ### Reflection
-~50 words on the most instructive moment — what went wrong first, how you fixed it, or what made progress easier
+Same as last week, just working on adding logic and trying to ensure that everything is non-blocking, which is hard when rescue code is usually procedural.
 
 ### Decisions made
-Design or implementation choices you settled on, and your reasoning
+I would retrain the model with more photos and annotate evacuation points, but I don't have that much time before I have exams, so I will leave that part out until the trials are done.
 
 ### Testing notes
-Any testing you performed and what you found
+N/A
 
 ### AI log use
-For every AI session: tool used, purpose, output received, and how you evaluated and adapted it
+N/A
