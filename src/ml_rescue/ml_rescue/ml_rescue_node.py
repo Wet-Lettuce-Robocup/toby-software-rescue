@@ -9,7 +9,9 @@ from rclpy.lifecycle import (
     State,
     TransitionCallbackReturn,
 )
+from rclpy.client import Client
 from rclpy.publisher import Publisher
+from rclpy.service import Service
 from rclpy.subscription import Subscription
 from rclpy.timer import Timer
 from rescue_msgs.srv import InferenceDetections, SetRescueState
@@ -72,8 +74,8 @@ class TRescue(LifecycleNode):
         self.rescue_state_srv = self.create_service(
             SetRescueState, 'set_rescue_state', self.set_rescue_state_callback
         )
-        self.inference_srv = None
-        self.rescue_detections_cli = None
+        self.inference_srv: Service | None = None
+        self.rescue_detections_cli: Client | None = None
 
         self.data = None
         self.inference_returned = False
@@ -121,7 +123,7 @@ class TRescue(LifecycleNode):
         )
         self.rescue_detections_cli = self.create_client(InferenceDetections, 'rescue_detections')
 
-        while not self.rescue_detections_client.wait_for_service(timeout_sec=1.0):
+        while not self.rescue_detections_cli.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('Waiting for rescue_detections service...')
 
         self.get_logger().info('Configuring complete')
