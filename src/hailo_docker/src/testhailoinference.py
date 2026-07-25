@@ -16,48 +16,16 @@ class PredictionClass:
     """
 
     def __init__(self):
-        self.pt_model = YOLO('config/best.pt')
         self.picam2 = None  # Placeholder
 
         self.hailo_model = 'robotyolov8s'
-        self.hailo_model_path = f'config/{self.hailo_model}.hef'
+        self.hailo_model_path = f'models/{self.hailo_model}.hef'
         self.imgsz = 640
         self.conf_threshold = 0.25
-        self.classes = ['ball']
+        self.classes = ['black', 'silver']
         self.timeout_ms = 1000
 
-    def predict_image(self, image_path):
-        results = self.pt_model(image_path)  # Runs inference on test image
-        results[0].show()  # Displays model-annotated image
-
-    def predict_pi_video_stream(self, frames=100):
-        if not self.picam2:
-            import cv2
-            from libcamera import Transform
-            from picamera2 import Picamera2
-
-            self.picam2 = Picamera2()
-            self.picam2.configure(
-                self.picam2.create_video_configuration(
-                    sensor={'output_size': (2304, 1296)},  # Max is 4608x2592
-                    main={'format': 'RGB888', 'size': (960, 540)},
-                    controls={'FrameRate': 10},
-                    transform=Transform(hflip=1, vflip=1),  # 180 degree rotation
-                )
-            )
-            self.picam2.set_controls({'AfMode': 2})
-            self.picam2.start()
-
-        for i in range(frames):
-            frame = self.picam2.capture_array()
-            results = self.pt_model(frame)  # Runs inference on video frame
-            annotated_image = results[0].plot()  # Displays model-annotated video frame
-            cv2.imshow('YOLO', annotated_image)
-            cv2.waitKey(1)
-
-        cv2.destroyAllWindows()
-
-    def predict_hailo(self, source):
+    def old_predict_hailo(self, source):
 
         orig = Image.open(source).convert('RGB')
         ow, oh = orig.size
@@ -135,9 +103,9 @@ class PredictionClass:
         orig.save('output.jpg')
         print('Saved output.jpg successfully!')
 
-    def test_hailo(self):
+    def old_test_hailo(self):
 
-        hef_path = 'config/robotyolov8s.hef'
+        hef_path = self.hailo_model_path
 
         print('Initialising...')
 
@@ -171,14 +139,9 @@ class PredictionClass:
             print('VDevice loaded.')
 
             infer_model = target.create_infer_model(self.hailo_model_path)
-            print(
-                f'Model loaded: input shape {infer_model.input().shape}, '
-                f'output shape {infer_model.output().shape}'
-            )
-
             input_name = infer_model.input_names[0]
             output_name = infer_model.output_names[0]
-            print(f'Input name: {input_name}, Output name: {output_name}')
+            output_shape = self.infer_model.output(self.output_name).shape
 
             with infer_model.configure() as configured_model:
                 print('Model configured')
@@ -211,4 +174,4 @@ if __name__ == '__main__':
     pred = PredictionClass()
     # pred.predict_image('test.jpg')
     # pred.predict_pi_video_stream()
-    pred.predict_hailo('test.jpg')
+    pred.predict_hailo_async()
