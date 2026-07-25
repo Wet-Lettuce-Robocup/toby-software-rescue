@@ -73,9 +73,7 @@ class TRescue(LifecycleNode):
             SetRescueState, 'set_rescue_state', self.set_rescue_state_callback
         )
         self.inference_srv = None
-        self.rescue_detections_client = self.create_client(
-            InferenceDetections, 'rescue_detections'
-        )
+        self.rescue_detections_cli = None
 
         self.data = None
         self.inference_returned = False
@@ -94,12 +92,6 @@ class TRescue(LifecycleNode):
         self.get_logger().info('Configuring ml_rescue node...')
 
         self.robot = Movement(self)
-        self.inference_srv = self.create_service(
-            SendInference, 'detections', self.send_inference_data
-        )
-        if self.inference_srv is not None:
-            while not self.inference_srv.wait_for_service(timeout_sec=1.0):
-                self.get_logger().info('Waiting for inference service...')
 
         self.timer = self.create_timer(0.05, self.state_loop)
         self.timer.cancel()
@@ -124,6 +116,13 @@ class TRescue(LifecycleNode):
         self.side_tof_subscriber = self.create_subscription(
             Int32, '/tof/side', self.side_tof_callback, 10
         )
+        self.inference_srv = self.create_service(
+            SendInference, 'detections', self.send_inference_data
+        )
+        self.rescue_detections_cli = self.create_client(InferenceDetections, 'rescue_detections')
+
+        while not self.rescue_detections_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for rescue_detections service...')
 
         self.get_logger().info('Configuring complete')
         return TransitionCallbackReturn.SUCCESS
@@ -376,7 +375,7 @@ class TRescue(LifecycleNode):
 
         self.inference_returned = False
 
-        future = self.inference_srv.call_async(request)
+        future = self.rescue_detections_cli.call_async(request)
         future.add_done_callback(self._parse_results)
 
     def _parse_results(self, future):
