@@ -154,6 +154,7 @@ class TRescue(LifecycleNode):
         self.get_logger().info('Deactivating ml_rescue node...')
         if self.led_pub is not None:
             self.led_pub.publish(Int32(data=0))
+        self.stop_moving()
         self.isActive = False
 
         if self.timer:
@@ -204,7 +205,7 @@ class TRescue(LifecycleNode):
 
                 if self.data is None or self.data == []:
                     # Spin robot a little bit
-                    self.start_moving(0, 10)
+                    self.start_moving(0, 0.1)
                     return
 
             if not self.inference_returned:
