@@ -97,6 +97,10 @@ class TRescue(LifecycleNode):
         self.inference_srv = self.create_service(
             SendInference, 'detections', self.send_inference_data
         )
+        if self.inference_srv is not None:
+            while not self.inference_srv.wait_for_service(timeout_sec=1.0):
+                self.get_logger().info('Waiting for inference service...')
+
         self.timer = self.create_timer(0.05, self.state_loop)
         self.timer.cancel()
 
@@ -372,7 +376,7 @@ class TRescue(LifecycleNode):
 
         self.inference_returned = False
 
-        future = self.cli.call_async(request)
+        future = self.inference_srv.call_async(request)
         future.add_done_callback(self._parse_results)
 
     def _parse_results(self, future):
