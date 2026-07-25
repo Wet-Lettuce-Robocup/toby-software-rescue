@@ -461,7 +461,8 @@ class TRescue(LifecycleNode):
         request = EnableInference.Request()
         request.enabled = enabled
 
-        future = self.enable_inference.call_async(request)
+        if self.enable_inference_cli:
+            future = self.enable_inference_cli.call_async(request)
 
         self.data = None
 

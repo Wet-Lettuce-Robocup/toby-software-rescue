@@ -46,8 +46,6 @@ class VisionNode(Node):
         self.rescue_detections_srv = self.create_service(
             InferenceDetections, 'rescue_detections', self.inference_callback
         )
-        self.inference_enabled_srv = self.create_service()
-
         self.rescue_active_srv = self.create_service(
             EnableInference, 'enable_inference', self.rescue_active_callback
         )
@@ -117,11 +115,13 @@ class VisionNode(Node):
 
     def inference_callback(self, request, response):
         if not self.isActive:
-            return
+            response.success = False
+            return response
 
         if self.latest_image is None:
             self.get_logger().warn('No image received, is the front camera working?')
-            return
+            response.success = False
+            return response
 
         if request.message == 'ball':
             mode = 1
@@ -129,7 +129,8 @@ class VisionNode(Node):
             mode = 2
         else:
             self.get_logger().info(f'Invalid inference request {request.message}')
-            return
+            response.success = False
+            return response
 
         # start_time = time.time()
 
@@ -256,7 +257,7 @@ class VisionNode(Node):
         except queue.Empty:
             pass
 
-        if detection_msg.detections:
+        if detection_msg is not None and detection_msg.detections:
             # self.get_logger().info('- - - Publishing detections - - -')
             response.success = True
             response.detections = detection_msg
@@ -336,11 +337,12 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
-        if vision_node.out is not None:
-            vision_node.out.release()
-        if vision_node.target is not None:
-            vision_node.target.release()
-        vision_node.destroy_node()
+        if vision_node is not None:
+            if vision_node.out is not None:
+                vision_node.out.release()
+            if vision_node.target is not None:
+                vision_node.target.release()
+            vision_node.destroy_node()
         rclpy.shutdown()
 
 
