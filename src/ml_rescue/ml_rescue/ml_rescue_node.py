@@ -82,10 +82,13 @@ class TRescue(LifecycleNode):
         self.target_object = None
         # self.obstacles: list[list] = []
         self.balls_found = 0
+        self.target_dropzone = None
 
         self.front_tof_dist = None
         self.claw_tof_dist = None
         self.side_tof_dist = None
+
+        self.target_time_elapsed = 0
 
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Configuring ml_rescue node...')
@@ -130,9 +133,12 @@ class TRescue(LifecycleNode):
         self.data = None
         self.last_data = None
         self.balls_found = 0
+        self.target_dropzone = None
         self.front_tof_dist = None
         self.claw_tof_dist = None
         self.side_tof_dist = None
+
+        self.target_time_elapsed = 0
 
         if self.timer:
             self.timer.reset()
@@ -213,10 +219,12 @@ class TRescue(LifecycleNode):
             for i in self.data:
                 obj_type = i[0]
                 if self.balls_found == 3:
-                    if obj_type == 'green':
-                        pass
-                    elif obj_type == 'red':
-                        print('a')
+                    if obj_type == 'green' and self.target_dropzone == None:
+                        self.target_dropzone = 'green'
+                        self.target_object = i
+                    elif obj_type == 'red' and self.target_dropzone == 'green':
+                        self.target_dropzone = 'red'
+                        self.target_object = i
                 elif (
                     obj_type == 'silver'
                     and self.balls_found in [0, 1]
@@ -240,7 +248,7 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Targetting a ball')
                 self.state_started = True
 
-                self.grab_ball('open')
+                self.claw('open')
 
                 ballIsLocked = False
 
@@ -252,8 +260,10 @@ class TRescue(LifecycleNode):
 
             ballIsLocked = True
 
+            # Add a check to make sure ball is in correct spot before picking up
+
             if ballIsLocked:
-                self.lift_ball('down')
+                self.lift('down')
 
                 self.transition_to_state(States.GRAB_BALL)
 
@@ -263,10 +273,12 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Grabbing ball')
                 self.state_started = True
 
-                self.grab_ball('close')
+                self.claw('close')
                 self.balls_found += 1
 
-                self.lift_ball('up')
+                self.lift('up')
+
+                # Add a check to make sure ball is actually picked up
 
                 self.transition_to_state(States.SCAN)
 
@@ -276,17 +288,42 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Targetting evacuation point')
                 self.state_started = True
 
-                self.set_inference(True)
+                bearing = self.target_object[3]
+                distance = self.target_object[2] - 0.05
+
+                self.robot.drive(0, bearing)
+                self.robot.drive(distance)
 
                 self.transition_to_state(States.DUMP_DROPZONE)
 
         elif self.current_state == States.DUMP_DROPZONE:
             # Release balls
+            now = self.get_clock().now()
+
             if not self.state_started:
                 self.get_logger().info('Releasing balls')
                 self.state_started = True
 
-                self.transition_to_state(States.EXIT)
+                self.robot.drive(-0.05)
+                self.robot.drive(0, 180)
+                self.robot.drive(0.1)
+
+                if self.target_dropzone == 'red':
+                    self.claw('open')
+
+                self.gate('open')
+                self.target_time_elapsed = now + rclpy.duration.Duration(seconds=3.0)
+
+            if now >= self.target_time_elapsed:
+                self.gate('close')
+                self.claw('close')
+
+                if self.target_dropzone == 'green':
+                    self.transition_to_state(States.SCAN)
+                elif self.target_dropzone == 'red':
+                    self.transition_to_state(States.EXIT)
+                else:
+                    self.get_logger().info('error after dropping off balls')
 
         elif self.current_state == States.EXIT:
             # Locate exit and turn rescue code off
@@ -296,12 +333,37 @@ class TRescue(LifecycleNode):
 
                 self.robot.drive(0.5)
 
+            status, angle = self.left_wall_follow()
+
+            if status == 'exit':
+                self.get_logger().info('Deactivating rescue')
+                self.rescue_active_pub.publish(Bool(data=False))
+                # Add check for black line
+            elif status == 'right':
+                self.stop_moving()
+                self.robot.drive(0, 90)
+            elif status == 'wall':
+                self.start_moving(0.2, angle)
+
         else:
             self.get_logger().warn('Invalid rescue state detected')
 
-    def transition_to_state(self, new_state: States):
-        self.current_state = new_state
-        self.state_started = False
+    def left_wall_follow(self, target_distance=150):
+        left_dist = self.side_tof_dist
+        front_dist = self.front_tof_dist
+
+        if front_dist < 200:
+            return 'right'
+
+        if left_dist >= 400:
+            return 'exit'
+
+        error = target_distance - left_dist
+
+        angle = error * 3
+        angle = max(-1.5, min(1.5, angle))
+
+        return 'wall', angle
 
     def request_inference(self, message):
         request = InferenceDetections.Request()
@@ -445,7 +507,7 @@ class TRescue(LifecycleNode):
         if self.cmd_vel_pub is not None:
             self.start_moving(0, 0)
 
-    def grab_ball(self, state):
+    def claw(self, state):
         """State is either 'open' or 'close'."""
         if state == 'open':
             self.claw_pub.publish(data=Float32(0.5))
@@ -454,7 +516,7 @@ class TRescue(LifecycleNode):
         else:
             self.get_logger().warn('Invalid grab command')
 
-    def lift_ball(self, state):
+    def lift(self, state):
         """State is either 'up' or 'down'."""
         if state == 'up':
             self.lift_pub.publsh(data=Float32(2.5))
@@ -463,7 +525,7 @@ class TRescue(LifecycleNode):
         else:
             self.get_logger().warn('Invalid lift command')
 
-    def open_gate(self, state):
+    def gate(self, state):
         """State is either 'open' or 'close'."""
         if state == 'open':
             self.lift_pub.publsh(data=Float32(2.3))
@@ -471,6 +533,31 @@ class TRescue(LifecycleNode):
             self.lift_pub.publsh(data=Float32(0.8))
         else:
             self.get_logger().warn('Invalid gate command')
+
+    def front_tof_callback(self, msg):
+        try:
+            self.front_tof_distance = float(msg.data) / 1000.0
+        except Exception as e:
+            self.get_logger().warn(f'Front tof error {e} with msg {msg}')
+            self.front_tof_distance = None
+
+    def claw_tof_callback(self, msg):
+        try:
+            self.claw_tof_distance = float(msg.data) / 1000.0
+        except Exception as e:
+            self.get_logger().warn(f'Claw tof error {e} with msg {msg}')
+            self.claw_tof_distance = None
+
+    def side_tof_callback(self, msg):
+        try:
+            self.side_tof_distance = float(msg.data) / 1000.0
+        except Exception as e:
+            self.get_logger().warn(f'Side tof error {e} with msg {msg}')
+            self.side_tof_distance = None
+
+    def transition_to_state(self, new_state: States):
+        self.current_state = new_state
+        self.state_started = False
 
 
 class Movement:

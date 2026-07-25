@@ -5,11 +5,15 @@ Using vision based ML running on a Hailo NPU to rescue some balls.
 All code is within the 'src' directory, including ros packages, code relating to hailo compilation, and code relating to machine learning model training.
 
 ### Note: for mirroring repository for software task
+```bash
 git clone --mirror https://github.com/user/original-repo.git
 cd original-repo.git
 git push --mirror https://github.com/user/new-repo.git
+```
 
-Repository can be found at [https://github.com/Wet-Lettuce-Robocup/toby-software-rescue](https://github.com/Wet-Lettuce-Robocup/toby-software-rescue)
+\* Repository can be found at [https://github.com/Wet-Lettuce-Robocup/toby-software-rescue](https://github.com/Wet-Lettuce-Robocup/toby-software-rescue)
 
 ### Camera Calibration
+```
 ros2 run camera_calibration cameracalibrator --size 8x6 --square 0.017 --no-service-check --ros-args -r camera:=/front_camera/camera_node/camera_info -r image:=/front_camera/camera_node/image_raw
+```
