@@ -121,7 +121,7 @@ class TRescue(LifecycleNode):
             Int32, '/tof/side', self.side_tof_callback, 10
         )
 
-        self.get_logger().info('Configuring conmplete')
+        self.get_logger().info('Configuring complete')
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: State) -> TransitionCallbackReturn:
@@ -372,13 +372,19 @@ class TRescue(LifecycleNode):
 
         self.inference_returned = False
 
-        self._parse_results(self.cli.call_async(request))
+        future = self.cli.call_async(request)
+        future.add_done_callback(self._parse_results)
 
-    def _parse_results(self, msg):
+    def _parse_results(self, future):
+        try:
+            msg = future.result()
+        except Exception as e:
+            self.get_logger().error(f'Service call failed: {e}')
+            return
 
         old_data = self.data if self.data is not None else []
 
-        if msg.success is False:
+        if not msg.success:
             self.get_logger().info('inference returned false')
             return
 
