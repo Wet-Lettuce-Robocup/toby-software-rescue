@@ -14,7 +14,7 @@ from rclpy.publisher import Publisher
 from rclpy.service import Service
 from rclpy.subscription import Subscription
 from rclpy.timer import Timer
-from rescue_msgs.srv import InferenceDetections, SetRescueState
+from rescue_msgs.srv import EnableInference, InferenceDetections, SetRescueState
 from robot_msgs.action import MoveTime
 from robot_msgs.srv import Inference as SendInference
 from std_msgs.msg import Bool, Float32, Int32
@@ -76,6 +76,7 @@ class TRescue(LifecycleNode):
         )
         self.inference_srv: Service | None = None
         self.rescue_detections_cli: Client | None = None
+        self.enable_inference_cli: Client | None = None
 
         self.data = None
         self.inference_returned = False
@@ -121,6 +122,8 @@ class TRescue(LifecycleNode):
         self.inference_srv = self.create_service(
             SendInference, 'detections', self.send_inference_data
         )
+        self.enable_inference_cli = self.create_client(EnableInference, 'enable_inference')
+
         self.rescue_detections_cli = self.create_client(InferenceDetections, 'rescue_detections')
 
         while not self.rescue_detections_cli.wait_for_service(timeout_sec=1.0):
@@ -152,13 +155,13 @@ class TRescue(LifecycleNode):
 
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Deactivating ml_rescue node...')
-        if self.led_pub is not None:
-            self.led_pub.publish(Int32(data=0))
-        self.stop_moving()
         self.isActive = False
-
         if self.timer:
             self.timer.cancel()
+
+        self.stop_moving()
+        if self.led_pub is not None:
+            self.led_pub.publish(Int32(data=0))
 
         return super().on_deactivate(state)
 
@@ -195,6 +198,7 @@ class TRescue(LifecycleNode):
             if not self.state_started:
                 self.get_logger().info('Enabling inference and scanning for ball')
                 self.state_started = True
+                self.set_inference(True)
 
                 self.data = []
 
@@ -205,7 +209,7 @@ class TRescue(LifecycleNode):
 
                 if self.data is None or self.data == []:
                     # Spin robot a little bit
-                    self.start_moving(0, 0.1)
+                    self.start_moving(0, 0.01)
                     return
 
             if not self.inference_returned:
@@ -243,6 +247,8 @@ class TRescue(LifecycleNode):
                     # In future add handling for multiple obstacles for avoidance
 
             if self.target_object is not None:
+                self.set_inference(False)
+
                 if self.balls_found < 3:
                     self.transition_to_state(States.TARGET_BALL)
                 else:
@@ -396,6 +402,7 @@ class TRescue(LifecycleNode):
 
         self.inference_returned = True
 
+        self.get_logger().info(f'{msg.detections}')
         if len(msg.detections) == 0:
             # self.get_logger().warn('Nothing detected')
             self.last_data = old_data
@@ -448,6 +455,17 @@ class TRescue(LifecycleNode):
 
         self.last_data = old_data
         self.data = current_data
+
+    def set_inference(self, enabled: bool):
+
+        request = EnableInference.Request()
+        request.enabled = enabled
+
+        future = self.enable_inference.call_async(request)
+
+        self.data = None
+
+        return future
 
     def send_inference_data(self, request, response):
         data = self.data

@@ -12,7 +12,7 @@ from hailo_platform import VDevice
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from rescue_msgs.srv import InferenceDetections
+from rescue_msgs.srv import EnableInference, InferenceDetections
 from sensor_msgs.msg import Image
 from vision_msgs.msg import (
     Detection2D,
@@ -46,6 +46,12 @@ class VisionNode(Node):
         self.rescue_detections_srv = self.create_service(
             InferenceDetections, 'rescue_detections', self.inference_callback
         )
+        self.inference_enabled_srv = self.create_service()
+
+        self.rescue_active_srv = self.create_service(
+            EnableInference, 'enable_inference', self.rescue_active_callback
+        )
+        self.isActive = False
 
         self.bridge = CvBridge()
 
@@ -92,21 +98,27 @@ class VisionNode(Node):
         self.out = cv2.VideoWriter(pipeline, cv2.CAP_GSTREAMER, 0, self.fps, (self.dw, self.dh))
         self.get_logger().info(f'Video writer opened: {self.out.isOpened()}')
 
-    # def rescue_active_callback(self, request, response):
-    #     self.isActive = request.enabled
-    #     response.message = (
-    #         'Inference enabled successfully' if request.enabled else 'Inference disabled'
-    #     )
+    def rescue_active_callback(self, request, response):
+        self.isActive = request.enabled
+        response.message = (
+            'Inference enabled successfully' if request.enabled else 'Inference disabled'
+        )
 
-    #     self.get_logger().info(response.message)
+        self.get_logger().info(response.message)
 
-    #     return response
+        return response
 
     def image_callback(self, msg):
+        if not self.isActive:
+            return
+
         self.latest_image_header = msg.header
         self.latest_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
 
     def inference_callback(self, request, response):
+        if not self.isActive:
+            return
+
         if self.latest_image is None:
             self.get_logger().warn('No image received, is the front camera working?')
             return
