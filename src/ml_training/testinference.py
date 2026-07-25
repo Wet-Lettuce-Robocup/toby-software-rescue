@@ -13,7 +13,7 @@ class PredictionClass:
     """
 
     def __init__(self):
-        self.model = YOLO('config/best.pt')  # Loads custom model from training
+        self.model = YOLO('model/best.pt')  # Loads custom model from training
         self.picam2 = None  # Placeholder
 
     def predict_image(self, image_path):
@@ -30,7 +30,7 @@ class PredictionClass:
             self.picam2.configure(
                 self.picam2.create_video_configuration(
                     sensor={'output_size': (2304, 1296)},  # Max is 4608x2592
-                    main={'format': 'RGB888', 'size': (960, 540)},
+                    main={'format': 'RGB888', 'size': (1536, 864)},
                     controls={'FrameRate': 10},
                     transform=Transform(hflip=1, vflip=1),  # 180 degree rotation
                 )
