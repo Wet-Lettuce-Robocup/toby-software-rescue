@@ -4,12 +4,12 @@ import math
 from geometry_msgs.msg import Twist
 import rclpy
 from rclpy.action import ActionClient
+from rclpy.client import Client
 from rclpy.lifecycle import (
     LifecycleNode,
     State,
     TransitionCallbackReturn,
 )
-from rclpy.client import Client
 from rclpy.publisher import Publisher
 from rclpy.service import Service
 from rclpy.subscription import Subscription
@@ -235,7 +235,7 @@ class TRescue(LifecycleNode):
             for i in current_data:
                 obj_type = i[0]
                 if self.balls_found == 3:
-                    if obj_type == 'green' and self.target_dropzone == None:
+                    if obj_type == 'green' and self.target_dropzone is None:
                         self.target_dropzone = 'green'
                         self.target_object = i
                     elif obj_type == 'red' and self.target_dropzone == 'green':
@@ -249,7 +249,9 @@ class TRescue(LifecycleNode):
                 ):
                     self.target_object = i
                 else:
-                    self.get_logger().warn(f'What is this object {obj_type}')
+                    self.get_logger().warn(
+                        f'Something is broken: {obj_type} with {self.balls_found} balls rescued'
+                    )
                     # In future add handling for multiple obstacles for avoidance
 
             if self.target_object is not None:
@@ -409,7 +411,6 @@ class TRescue(LifecycleNode):
 
         self.inference_returned = True
 
-        self.get_logger().info(f'{msg.detections}')
         # if len(msg.detections.detections) == 0:
         #     # self.get_logger().warn('Nothing detected')
         #     self.last_data = old_data
@@ -557,18 +558,18 @@ class TRescue(LifecycleNode):
     def lift(self, state):
         """State is either 'up' or 'down'."""
         if state == 'up':
-            self.lift_pub.publsh(Float32(data=2.5))
+            self.lift_pub.publish(Float32(data=2.5))
         elif state == 'down':
-            self.lift_pub.publsh(Float32(data=0.2))
+            self.lift_pub.publish(Float32(data=0.2))
         else:
             self.get_logger().warn('Invalid lift command')
 
     def gate(self, state):
         """State is either 'open' or 'close'."""
         if state == 'open':
-            self.lift_pub.publsh(Float32(data=2.3))
+            self.lift_pub.publish(Float32(data=2.3))
         elif state == 'close':
-            self.lift_pub.publsh(Float32(data=0.8))
+            self.lift_pub.publish(Float32(data=0.8))
         else:
             self.get_logger().warn('Invalid gate command')
 
@@ -603,7 +604,7 @@ class Movement:
 
     def __init__(self, node):
         self.node = node
-        self._move_client = ActionClient(node, MoveTime, 'move_time')
+        self._move_client = ActionClient(node, MoveTime, '/move_time')
         self.busy = False
         self.current_angle = 0.0
         self.distance_travelled = 0.0
