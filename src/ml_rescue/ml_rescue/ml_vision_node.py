@@ -114,6 +114,8 @@ class VisionNode(Node):
         self.latest_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
 
     def inference_callback(self, request, response):
+        self.get_logger().info('Inference has been called.')
+
         if not self.isActive:
             response.success = False
             return response

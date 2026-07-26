@@ -398,6 +398,7 @@ class TRescue(LifecycleNode):
 
         if not msg.success:
             self.get_logger().info('inference returned false')
+            self.inference_returned = True
             return
 
         self.inference_returned = True
