@@ -99,14 +99,11 @@ class TRescue(LifecycleNode):
         self.timer = self.create_timer(0.05, self.state_loop)
         self.timer.cancel()
 
+        self.claw_pub = self.create_publisher(Float32, '/servo/grab', 10)
+        self.lift_pub = self.create_publisher(Float32, '/servo/lift', 10)
+        self.gate_pub = self.create_publisher(Float32, '/servo/tray_release', 10)
+
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
-        self.claw_pub = self.create_publisher(
-            Float32, '/servo/grab', 10
-        )  # 0.5 is open, 1 is closed
-        self.lift_pub = self.create_publisher(Float32, '/servo/lift', 10)  # up is 2.5, down is 0.2
-        self.gate_pub = self.create_publisher(
-            Float32, '/servo/gate', 10
-        )  # open is 2.3, closed is 0.8
         self.rescue_active_pub = self.create_publisher(Bool, '/rescue_active', 10)
         self.led_pub = self.create_publisher(Int32, '/front_led/target_brightness', 10)
 
@@ -558,9 +555,9 @@ class TRescue(LifecycleNode):
     def lift(self, state):
         """State is either 'up' or 'down'."""
         if state == 'up':
-            self.lift_pub.publish(Float32(data=2.5))
+            self.lift_pub.publish(Float32(data=2.7))
         elif state == 'down':
-            self.lift_pub.publish(Float32(data=0.2))
+            self.lift_pub.publish(Float32(data=0.4))
         else:
             self.get_logger().warn('Invalid lift command')
 
