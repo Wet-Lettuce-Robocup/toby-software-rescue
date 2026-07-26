@@ -53,6 +53,7 @@ class TRescue(LifecycleNode):
         super().__init__('ml_rescue')
         self.current_state = States.ENTER
         self.state_started = False
+        self.sub_state = 0
 
         self.isActive = False
 
@@ -135,6 +136,7 @@ class TRescue(LifecycleNode):
 
         self.current_state = States.ENTER
         self.state_started = False
+        self.sub_state = 0
         self.data = None
         self.last_data = None
         self.balls_found = 0
@@ -190,7 +192,16 @@ class TRescue(LifecycleNode):
                 self.set_inference(True)
                 self.lift('up')
                 self.claw('close')
+
+                self.sub_state = 1
+
+            if self.sub_state == 1 and not self.robot.busy:
                 self.robot.drive(0.2)
+                self.sub_state = 2
+
+            if self.sub_state == 2:
+                if self.robot.busy:
+                    return
 
                 self.transition_to_state(States.SCAN)
 
@@ -207,7 +218,7 @@ class TRescue(LifecycleNode):
 
                 if self.data is None or self.data == []:
                     # Spin robot a little bit
-                    self.start_moving(0, 0.02)
+                    self.start_moving(0, 0.01)
                     return
 
             if not self.inference_returned:
@@ -259,25 +270,33 @@ class TRescue(LifecycleNode):
 
         elif self.current_state == States.TARGET_BALL:
             # Move towards ball
-            if not self.state_started:
-                self.get_logger().info('Targetting a ball')
-                self.state_started = True
-
-                self.claw('open')
-
-                ballIsLocked = False
 
             bearing = self.target_object[3]
             distance = self.target_object[2] - 0.05
 
-            self.robot.drive(0, bearing)  # need to test and see how far robot turns
-            self.robot.drive(distance)
+            if not self.state_started:
+                self.get_logger().info('Targeting a ball')
+                self.state_started = True
 
-            ballIsLocked = True
+                self.claw('open')
 
-            # Add a check to make sure ball is in correct spot before picking up
+                if not self.robot.busy:
+                    self.robot.drive(0, bearing)  # need to test and see how far robot turns
+                    self.sub_state = 1
 
-            if ballIsLocked:
+            if self.sub_state == 1:
+                if self.robot.busy:
+                    return
+
+                self.robot.drive(distance)
+                self.sub_state = 2
+
+            if self.sub_state == 2:
+                if self.robot.busy:
+                    return
+
+                # Add a check to make sure ball is in correct spot before picking up
+
                 self.lift('down')
 
                 self.transition_to_state(States.GRAB_BALL)
@@ -291,6 +310,14 @@ class TRescue(LifecycleNode):
                 self.claw('close')
                 self.balls_found += 1
 
+                if not self.robot.busy:
+                    self.robot.drive(-0.1)  # need to test and see how far robot turns
+                    self.sub_state = 1
+
+            if self.sub_state == 1:
+                if self.robot.busy:
+                    return
+
                 self.lift('up')
 
                 # Add a check to make sure ball is actually picked up
@@ -299,16 +326,27 @@ class TRescue(LifecycleNode):
 
         elif self.current_state == States.TARGET_DROPZONE:
             # Move towards dropzone
+
+            bearing = self.target_object[3]
+            distance = self.target_object[2] - 0.05
+
             if not self.state_started:
                 self.get_logger().info('Targetting evacuation point')
                 self.state_started = True
 
-                bearing = self.target_object[3]
-                distance = self.target_object[2] - 0.05
+                if not self.robot.busy:
+                    self.robot.drive(0, bearing)
+                    self.sub_state = 1
 
-                self.robot.drive(0, bearing)
+            if self.sub_state == 1:
+                if self.robot.busy:
+                    return
                 self.robot.drive(distance)
+                self.sub_state = 2
 
+            if self.sub_state == 2:
+                if self.robot.busy:
+                    return
                 self.transition_to_state(States.DUMP_DROPZONE)
 
         elif self.current_state == States.DUMP_DROPZONE:
@@ -319,9 +357,25 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Releasing balls')
                 self.state_started = True
 
-                self.robot.drive(-0.05)
+                if not self.robot.busy:
+                    self.robot.drive(-0.05)
+                    self.sub_state = 1
+
+            if self.sub_state == 1:
+                if self.robot.busy:
+                    return
                 self.robot.drive(0, 180)
+                self.sub_state = 2
+
+            if self.sub_state == 2:
+                if self.robot.busy:
+                    return
                 self.robot.drive(0.1)
+                self.sub_state = 3
+
+            if self.sub_state == 3:
+                if self.robot.busy:
+                    return
 
                 if self.target_dropzone == 'red':
                     self.claw('open')
@@ -329,16 +383,16 @@ class TRescue(LifecycleNode):
                 self.gate('open')
                 self.target_time_elapsed = now + rclpy.duration.Duration(seconds=3.0)
 
-            if now >= self.target_time_elapsed:
-                self.gate('close')
-                self.claw('close')
+                if now >= self.target_time_elapsed:
+                    self.gate('close')
+                    self.claw('close')
 
-                if self.target_dropzone == 'green':
-                    self.transition_to_state(States.SCAN)
-                elif self.target_dropzone == 'red':
-                    self.transition_to_state(States.EXIT)
-                else:
-                    self.get_logger().info('error after dropping off balls')
+                    if self.target_dropzone == 'green':
+                        self.transition_to_state(States.SCAN)
+                    elif self.target_dropzone == 'red':
+                        self.transition_to_state(States.EXIT)
+                    else:
+                        self.get_logger().info('error after dropping off balls')
 
         elif self.current_state == States.EXIT:
             # Locate exit and turn rescue code off
@@ -347,19 +401,31 @@ class TRescue(LifecycleNode):
                 self.set_inference(False)
                 self.state_started = True
 
-                self.robot.drive(0.5)
+                if not self.robot.busy:
+                    self.robot.drive(0.2)
+                    self.sub_state = 1
 
-            status, angle = self.left_wall_follow()
+            if self.sub_state == 1:
+                if self.robot.busy:
+                    return
 
-            if status == 'exit':
-                self.get_logger().info('Deactivating rescue')
-                self.rescue_active_pub.publish(Bool(data=False))
-                # Add check for black line
-            elif status == 'right':
-                self.stop_moving()
-                self.robot.drive(0, 90)
-            elif status == 'wall':
-                self.start_moving(0.2, angle)
+                status, angle = self.left_wall_follow()
+
+                if status == 'exit':
+                    self.get_logger().info('Deactivating rescue')
+                    self.rescue_active_pub.publish(Bool(data=False))
+                    # Add check for black line
+                elif status == 'right':
+                    self.stop_moving()
+                    self.robot.drive(0, 90)
+                    self.sub_state = 2
+                elif status == 'wall':
+                    self.start_moving(0.2, angle)
+
+            if self.sub_state == 2:
+                if self.robot.busy:
+                    return
+                self.sub_state = 1
 
         else:
             self.get_logger().warn('Invalid rescue state detected')
@@ -401,7 +467,7 @@ class TRescue(LifecycleNode):
         old_data = self.data if self.data is not None else []
 
         if not msg.success:
-            self.get_logger().info('inference returned false')
+            # self.get_logger().info('inference returned false')
             self.data = None
             self.inference_returned = True
             return
@@ -533,6 +599,7 @@ class TRescue(LifecycleNode):
 
     def start_moving(self, linear_x=0.0, angular_z=0.0):
         if self.cmd_vel_pub is None:
+            self.get_logger().warn('Movement command called, but cmd_vel_pub does not exist!')
             return
         twist = Twist()
         twist.linear.x = float(linear_x)
@@ -540,8 +607,7 @@ class TRescue(LifecycleNode):
         self.cmd_vel_pub.publish(twist)
 
     def stop_moving(self):
-        if self.cmd_vel_pub is not None:
-            self.start_moving(0, 0)
+        self.start_moving(0, 0)
 
     def claw(self, state):
         """State is either 'open' or 'close'."""
@@ -594,6 +660,7 @@ class TRescue(LifecycleNode):
     def transition_to_state(self, new_state: States):
         self.current_state = new_state
         self.state_started = False
+        self.sub_state = 0
 
 
 class Movement:
@@ -612,7 +679,7 @@ class Movement:
         self._sequence = None
         self._on_complete = None
 
-    def drive(self, distance, angle=0, velocity=0.1):
+    def drive(self, distance, angle=0, velocity=1):
         distance *= 100
         linear_time = abs(distance) / abs(velocity) if velocity != 0 and distance != 0 else 0.0
         angular_time = abs(angle) / abs(velocity) if velocity != 0 and angle != 0 else 0.0
