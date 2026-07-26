@@ -156,6 +156,7 @@ class TRescue(LifecycleNode):
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Deactivating ml_rescue node...')
         self.isActive = False
+        self.set_inference(False)
         if self.timer:
             self.timer.cancel()
 
@@ -189,6 +190,7 @@ class TRescue(LifecycleNode):
                 self.state_started = True
 
                 # move into centre of rescue zone
+                self.set_inference(True)
                 self.robot.drive(0.2)
 
                 self.transition_to_state(States.SCAN)
@@ -198,7 +200,6 @@ class TRescue(LifecycleNode):
             if not self.state_started:
                 self.get_logger().info('Enabling inference and scanning for ball')
                 self.state_started = True
-                self.set_inference(True)
 
                 self.data = []
 
@@ -223,6 +224,7 @@ class TRescue(LifecycleNode):
                     self.request_inference('evacpoint')
                 else:
                     self.request_inference('ball')
+                return
 
             # stop spinning
             self.stop_moving()
@@ -251,8 +253,6 @@ class TRescue(LifecycleNode):
                     # In future add handling for multiple obstacles for avoidance
 
             if self.target_object is not None:
-                self.set_inference(False)
-
                 if self.balls_found < 3:
                     self.transition_to_state(States.TARGET_BALL)
                 else:
@@ -345,6 +345,7 @@ class TRescue(LifecycleNode):
             # Locate exit and turn rescue code off
             if not self.state_started:
                 self.get_logger().info('Exiting rescue.....')
+                self.set_inference(False)
                 self.state_started = True
 
                 self.robot.drive(0.5)

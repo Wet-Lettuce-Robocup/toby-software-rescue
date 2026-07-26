@@ -117,6 +117,7 @@ class VisionNode(Node):
         self.get_logger().info('Inference has been called.')
 
         if not self.isActive:
+            self.get_logger().warn('Inference called but is not active.')
             response.success = False
             return response
 
@@ -265,6 +266,7 @@ class VisionNode(Node):
             response.detections = detection_msg
 
         else:
+            self.get_logger().info('No detections to send.')
             response.success = False
 
         return response
