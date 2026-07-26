@@ -201,8 +201,6 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Enabling inference and scanning for ball')
                 self.state_started = True
 
-                self.data = []
-
                 if self.balls_found == 3:
                     self.request_inference('evacpoint')
                 else:
@@ -219,7 +217,7 @@ class TRescue(LifecycleNode):
             current_data = self.data
 
             if current_data is None or len(current_data) == 0:
-                self.get_logger().info('No objects detected, requesting inference again...')
+                # self.get_logger().info('No objects detected, requesting inference again...')
                 if self.balls_found == 3:
                     self.request_inference('evacpoint')
                 else:
@@ -403,22 +401,22 @@ class TRescue(LifecycleNode):
 
         if not msg.success:
             self.get_logger().info('inference returned false')
-            self.data = []
+            self.data = None
             self.inference_returned = True
             return
 
         self.inference_returned = True
 
         self.get_logger().info(f'{msg.detections}')
-        if len(msg.detections.detections) == 0:
-            # self.get_logger().warn('Nothing detected')
-            self.last_data = old_data
-            self.data = None
-            return
+        # if len(msg.detections.detections) == 0:
+        #     # self.get_logger().warn('Nothing detected')
+        #     self.last_data = old_data
+        #     self.data = None
+        #     return
 
         current_data = []
 
-        for detection in msg.detections:
+        for detection in msg.detections.detections:
             # Skip detections with no classification
             if len(detection.results) == 0:
                 continue
