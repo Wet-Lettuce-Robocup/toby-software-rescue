@@ -191,6 +191,8 @@ class TRescue(LifecycleNode):
 
                 # move into centre of rescue zone
                 self.set_inference(True)
+                self.lift('up')
+                self.claw('close')
                 self.robot.drive(0.2)
 
                 self.transition_to_state(States.SCAN)
@@ -546,27 +548,27 @@ class TRescue(LifecycleNode):
     def claw(self, state):
         """State is either 'open' or 'close'."""
         if state == 'open':
-            self.claw_pub.publish(data=Float32(0.5))
+            self.claw_pub.publish(Float32(data=0.5))
         elif state == 'close':
-            self.claw_pub.publish(data=Float32(1))
+            self.claw_pub.publish(Float32(data=1.0))
         else:
             self.get_logger().warn('Invalid grab command')
 
     def lift(self, state):
         """State is either 'up' or 'down'."""
         if state == 'up':
-            self.lift_pub.publsh(data=Float32(2.5))
+            self.lift_pub.publsh(Float32(data=2.5))
         elif state == 'down':
-            self.lift_pub.publsh(data=Float32(0.2))
+            self.lift_pub.publsh(Float32(data=0.2))
         else:
             self.get_logger().warn('Invalid lift command')
 
     def gate(self, state):
         """State is either 'open' or 'close'."""
         if state == 'open':
-            self.lift_pub.publsh(data=Float32(2.3))
+            self.lift_pub.publsh(Float32(data=2.3))
         elif state == 'close':
-            self.lift_pub.publsh(data=Float32(0.8))
+            self.lift_pub.publsh(Float32(data=0.8))
         else:
             self.get_logger().warn('Invalid gate command')
 
@@ -613,6 +615,7 @@ class Movement:
         self._on_complete = None
 
     def drive(self, distance, angle=0, velocity=0.1):
+        distance *= 100
         linear_time = abs(distance) / abs(velocity) if velocity != 0 and distance != 0 else 0.0
         angular_time = abs(angle) / abs(velocity) if velocity != 0 and angle != 0 else 0.0
         time_required = max(linear_time, angular_time)
