@@ -209,12 +209,16 @@ class TRescue(LifecycleNode):
 
                 if self.data is None or self.data == []:
                     # Spin robot a little bit
-                    self.start_moving(0, 0.01)
+                    self.start_moving(0, 0.02)
                     return
 
             if not self.inference_returned:
                 return
-            elif self.data is None or len(self.data) == 0:
+
+            current_data = self.data
+
+            if current_data is None or len(current_data) == 0:
+                self.get_logger().info('No objects detected, requesting inference again...')
                 if self.balls_found == 3:
                     self.request_inference('evacpoint')
                 else:
@@ -222,11 +226,11 @@ class TRescue(LifecycleNode):
 
             # stop spinning
             self.stop_moving()
-            self.get_logger().info(f'{len(self.data)} objects detected.')
+            self.get_logger().info(f'{len(current_data)} objects detected.')
 
             self.target_object = None
 
-            for i in self.data:
+            for i in current_data:
                 obj_type = i[0]
                 if self.balls_found == 3:
                     if obj_type == 'green' and self.target_dropzone == None:
@@ -398,13 +402,14 @@ class TRescue(LifecycleNode):
 
         if not msg.success:
             self.get_logger().info('inference returned false')
+            self.data = []
             self.inference_returned = True
             return
 
         self.inference_returned = True
 
         self.get_logger().info(f'{msg.detections}')
-        if len(msg.detections) == 0:
+        if len(msg.detections.detections) == 0:
             # self.get_logger().warn('Nothing detected')
             self.last_data = old_data
             self.data = None
