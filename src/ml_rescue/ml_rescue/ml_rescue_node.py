@@ -183,23 +183,29 @@ class TRescue(LifecycleNode):
             return
 
         if self.current_state == States.ENTER:
+            now = self.get_clock().now()
             # Enter the rescue zone
             if not self.state_started:
                 self.get_logger().info('Entering rescue zone')
                 self.state_started = True
 
+                self.target_time_elapsed = now + rclpy.duration.Duration(seconds=3.0)
+
+                self.sub_state = 1
+
+            if now >= self.target_time_elapsed and self.sub_state == 1:
                 # move into centre of rescue zone
                 self.set_inference(True)
                 self.lift('up')
                 self.claw('close')
 
-                self.sub_state = 1
-
-            if self.sub_state == 1 and not self.robot.busy:
-                self.robot.drive(0.2)
                 self.sub_state = 2
 
-            if self.sub_state == 2:
+            if self.sub_state == 2 and not self.robot.busy:
+                self.robot.drive(0.2)
+                self.sub_state = 3
+
+            if self.sub_state == 3:
                 if self.robot.busy:
                     return
 
@@ -615,6 +621,7 @@ class TRescue(LifecycleNode):
         if self.cmd_vel_pub is None:
             self.get_logger().warn('Movement command called, but cmd_vel_pub does not exist!')
             return
+        self.get_logger().info(f'Movement command called with lx {linear_x} and az {angular_z}')
         twist = Twist()
         twist.linear.x = float(linear_x)
         twist.angular.z = float(angular_z)
@@ -694,7 +701,8 @@ class Movement:
         self._on_complete = None
 
     def drive(self, distance, angle=0, velocity=100):
-        distance *= 230
+        self.node.get_logger().info(f'Drive called with distance {distance} and angle {angle}')
+        distance *= 220
         linear_time = abs(distance) / abs(velocity) if velocity != 0 and distance != 0 else 0.0
         angular_time = abs(angle) / abs(velocity) if velocity != 0 and angle != 0 else 0.0
         time_required = max(linear_time, angular_time)
