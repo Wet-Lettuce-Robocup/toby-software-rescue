@@ -189,7 +189,8 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Entering rescue zone')
                 self.state_started = True
 
-                self.target_time_elapsed = now + rclpy.duration.Duration(seconds=3.0)
+                self.target_time_elapsed = now + rclpy.duration.Duration(seconds=5.0)
+                self.stop_moving()
 
                 self.sub_state = 1
 
@@ -241,8 +242,6 @@ class TRescue(LifecycleNode):
                     self.request_inference('ball')
                 return
 
-            # stop spinning
-            self.stop_moving()
             self.get_logger().info(f'{len(current_data)} objects detected.')
 
             self.target_object = None
@@ -270,6 +269,8 @@ class TRescue(LifecycleNode):
                     # In future add handling for multiple obstacles for avoidance
 
             if self.target_object is not None:
+                # stop spinning
+                self.stop_moving()
                 if self.balls_found < 3:
                     self.transition_to_state(States.TARGET_BALL)
                 else:
@@ -702,7 +703,7 @@ class Movement:
 
     def drive(self, distance, angle=0, velocity=100):
         self.node.get_logger().info(f'Drive called with distance {distance} and angle {angle}')
-        distance *= 220
+        distance *= 510
         linear_time = abs(distance) / abs(velocity) if velocity != 0 and distance != 0 else 0.0
         angular_time = abs(angle) / abs(velocity) if velocity != 0 and angle != 0 else 0.0
         time_required = max(linear_time, angular_time)
