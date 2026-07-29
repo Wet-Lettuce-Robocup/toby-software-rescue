@@ -1,8 +1,10 @@
 # Line Follow - Rescue Algorithm (Machine Learning)
 
-Using vision based ML running on a Hailo NPU to rescue some balls.
+Using a custom-trained vision based machine learning model running on a Hailo NPU to detect objects during rescue, competing in Robocup Junior Rescue Line.
 
 All code is within the 'src' directory, including ros packages, code relating to hailo compilation, and code relating to machine learning model training.
+
+I highly recommend not reading the raw markdown files, instead view the markdown files through github or another program that has built in markdown parsing.
 
 ### Note: for mirroring repository for software task
 ```bash
