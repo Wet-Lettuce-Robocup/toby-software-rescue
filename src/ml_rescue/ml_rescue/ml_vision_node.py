@@ -22,14 +22,12 @@ from vision_msgs.msg import (
 
 
 class VisionNode(Node):
-    """
-    A node.
-
-    - has things
-    """
+    """Runs machine learning model on front camera video stream and returns inference data to rescue_detections service."""
 
     def __init__(self):
         super().__init__('vision_node')
+
+        # Initiating ROS topics/services
 
         self.declare_parameter('raw_image_topic', '/front_camera/camera_node/image_raw')
         self.declare_parameter('ml_rescue_debug', True)
