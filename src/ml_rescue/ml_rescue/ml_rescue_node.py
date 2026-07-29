@@ -21,6 +21,8 @@ from std_msgs.msg import Bool, Float32, Int32
 
 
 class States(Enum):
+    """A class that holds the states for rescue."""
+
     ENTER = 0
     SCAN = 1
     TARGET_BALL = 2
@@ -37,6 +39,7 @@ class TRescue(LifecycleNode):
     Lifecycle node
     """
 
+    # Setup for camera calibration and distance estimation
     dw = 1536
     dh = 864
     # self.f_length = 2.75
@@ -56,6 +59,8 @@ class TRescue(LifecycleNode):
         self.sub_state = 0
 
         self.isActive = False
+
+        # Initialise ros topics and services
 
         self.robot: Movement | None = None
 
@@ -79,6 +84,7 @@ class TRescue(LifecycleNode):
         self.rescue_detections_cli: Client | None = None
         self.enable_inference_cli: Client | None = None
 
+        # Setup variables for data processing
         self.data = None
         self.inference_returned = False
         self.target_object = None
@@ -86,6 +92,7 @@ class TRescue(LifecycleNode):
         self.balls_found = 0
         self.target_dropzone = None
 
+        # Set tof data to None in case sensors fail to initialise
         self.front_tof_dist = None
         self.claw_tof_dist = None
         self.side_tof_dist = None
@@ -179,6 +186,7 @@ class TRescue(LifecycleNode):
         return TransitionCallbackReturn.SUCCESS
 
     def state_loop(self):
+        """Core loop which runs through states and executes main logic tasks."""
         if not self.isActive:
             return
 
@@ -189,6 +197,7 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Entering rescue zone')
                 self.state_started = True
 
+                # Wait 5 seconds without blocking state_loop
                 self.target_time_elapsed = now + rclpy.duration.Duration(seconds=5.0)
                 self.stop_moving()
 
@@ -203,6 +212,7 @@ class TRescue(LifecycleNode):
                 self.sub_state = 2
 
             if self.sub_state == 2 and not self.robot.busy:
+                # Send drive command and wait for it to return without blocking state_loop
                 self.robot.drive(0.2)
                 self.sub_state = 3
 
@@ -214,27 +224,31 @@ class TRescue(LifecycleNode):
                 self.transition_to_state(States.SCAN)
 
         elif self.current_state == States.SCAN:
-            # Prescan for all objects OR one ball at a time
+            # Scan for either balls or evacuation points
             if not self.state_started:
                 self.get_logger().info('Starting scanning...')
                 self.state_started = True
 
                 if self.balls_found == 3:
+                    # If all balls are found, search for evacuation points
                     self.request_inference('evacpoint')
                 else:
                     self.request_inference('ball')
 
                 if self.data is None or self.data == []:
-                    # Spin robot a little bit
+                    # Spin robot a little bit to seek out more balls
                     self.start_moving(0, 0.015)
                     return
 
             if not self.inference_returned:
+                # Wait for inference data without blocking state_loop
                 return
 
             current_data = self.data
 
             if current_data is None or len(current_data) == 0:
+                # Request inference data again if nothing found
+
                 # self.get_logger().info('No objects detected, requesting inference again...')
                 if self.balls_found == 3:
                     self.request_inference('evacpoint')
@@ -246,9 +260,12 @@ class TRescue(LifecycleNode):
 
             self.target_object = None
 
+            # Iterate through returned data and only target first detection
+            # In future, save all objects and navigate to each using odometry, once it's fixed
             for i in current_data:
                 obj_type = i[0]
                 if self.balls_found == 3:
+                    # If all balls found, target green dropzone, then red if no green is found
                     if obj_type == 'green' and self.target_dropzone is None:
                         self.target_dropzone = 'green'
                         self.target_object = i
@@ -261,6 +278,7 @@ class TRescue(LifecycleNode):
                     or obj_type == 'black'
                     and self.balls_found == 2
                 ):
+                    # If not all balls found, target silver, then black if both silvers are found
                     self.target_object = i
                 else:
                     self.get_logger().warn(
@@ -269,7 +287,7 @@ class TRescue(LifecycleNode):
                     # In future add handling for multiple obstacles for avoidance
 
             if self.target_object is not None:
-                # stop spinning
+                # stop spinning if target acquired
                 self.stop_moving()
                 if self.balls_found < 3:
                     self.transition_to_state(States.TARGET_BALL)
@@ -277,7 +295,7 @@ class TRescue(LifecycleNode):
                     self.transition_to_state(States.TARGET_DROPZONE)
 
         elif self.current_state == States.TARGET_BALL:
-            # Move towards ball
+            # Move towards ball using distance and angle estimation
 
             bearing = self.target_object[3]
             distance = self.target_object[2] - 0.05
@@ -305,7 +323,7 @@ class TRescue(LifecycleNode):
                 if self.robot.busy:
                     return
 
-                # Add a check to make sure ball is in correct spot before picking up
+                # TODO: Add a check to make sure ball is in correct spot before picking up
 
                 self.lift('down')
 
@@ -326,7 +344,7 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Reversing...')
 
                 if not self.robot.busy:
-                    self.robot.drive(-0.05)  # need to test and see how far robot turns
+                    self.robot.drive(-0.05)
                     self.sub_state = 1
 
             if self.sub_state == 1:
@@ -335,7 +353,7 @@ class TRescue(LifecycleNode):
 
                 self.lift('up')
 
-                # Add a check to make sure ball is actually picked up
+                # TODO: Add a check to make sure ball is actually picked up (limit switch)
 
                 self.target_time_elapsed = now + rclpy.duration.Duration(seconds=3.0)
                 self.sub_state = 2
@@ -345,7 +363,7 @@ class TRescue(LifecycleNode):
                 self.transition_to_state(States.SCAN)
 
         elif self.current_state == States.TARGET_DROPZONE:
-            # Move towards dropzone
+            # Move towards dropzone using distance/angle estimation
 
             bearing = self.target_object[3]
             distance = self.target_object[2] - 0.05
@@ -370,7 +388,7 @@ class TRescue(LifecycleNode):
                 self.transition_to_state(States.DUMP_DROPZONE)
 
         elif self.current_state == States.DUMP_DROPZONE:
-            # Release balls
+            # Release balls into dropzone
             now = self.get_clock().now()
 
             if not self.state_started:
@@ -416,7 +434,7 @@ class TRescue(LifecycleNode):
                     self.get_logger().info('error after dropping off balls')
 
         elif self.current_state == States.EXIT:
-            # Locate exit and turn rescue code off
+            # Locate exit using maze algorithm and turn rescue code off
             if not self.state_started:
                 self.get_logger().info('Exiting rescue.....')
                 self.set_inference(False)
@@ -452,6 +470,7 @@ class TRescue(LifecycleNode):
             self.get_logger().warn('Invalid rescue state detected')
 
     def left_wall_follow(self, target_distance=150):
+        # Turn right if wall in front, exit rescue if no wall to left, else go straight
         left_dist = self.side_tof_dist
         front_dist = self.front_tof_dist
 
@@ -469,6 +488,7 @@ class TRescue(LifecycleNode):
         return 'wall', angle
 
     def request_inference(self, message):
+        # Request inference data from vision_node
         request = InferenceDetections.Request()
 
         request.message = message
@@ -479,6 +499,7 @@ class TRescue(LifecycleNode):
         future.add_done_callback(self._parse_results)
 
     def _parse_results(self, future):
+        # Function to handle results and estimate distance
         try:
             msg = future.result()
         except Exception as e:

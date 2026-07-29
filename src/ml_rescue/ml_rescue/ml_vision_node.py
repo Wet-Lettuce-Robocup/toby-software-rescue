@@ -22,12 +22,12 @@ from vision_msgs.msg import (
 
 
 class VisionNode(Node):
-    """Runs machine learning model on front camera video stream and returns inference data to rescue_detections service."""
+    """Runs ML model on video stream and returns inference data to rescue_detections service."""
 
     def __init__(self):
         super().__init__('vision_node')
 
-        # Initiating ROS topics/services
+        # Initialising ROS topics/services
 
         self.declare_parameter('raw_image_topic', '/front_camera/camera_node/image_raw')
         self.declare_parameter('ml_rescue_debug', True)
@@ -47,6 +47,9 @@ class VisionNode(Node):
         self.rescue_active_srv = self.create_service(
             EnableInference, 'enable_inference', self.rescue_active_callback
         )
+
+        # Camera and inference setup
+
         self.isActive = False
 
         self.bridge = CvBridge()
@@ -56,7 +59,7 @@ class VisionNode(Node):
         self.latest_image = None
         self.latest_image_header = None
 
-        self.hailo = 'robotyolov8s'  # Model name
+        self.hailo = 'robotyolov8s'  # Model filename
         self.hef_path = os.path.join(
             get_package_share_directory('ml_rescue'), 'modelhef', f'{self.hailo}.hef'
         )
@@ -81,9 +84,11 @@ class VisionNode(Node):
 
         self.out = None
 
+        # Frame size
         self.dw = 1536
         self.dh = 864
 
+        # Video writer setup for debugging
         pipeline = (
             'appsrc ! queue '
             f'! video/x-raw,format=BGR,width={self.dw},height={self.dh},framerate={self.fps}/1 '
@@ -95,6 +100,7 @@ class VisionNode(Node):
         self.get_logger().info(f'Video writer opened: {self.out.isOpened()}')
 
     def rescue_active_callback(self, request, response):
+        """Gets request to toggle inference (enabled/disabled)."""
         self.isActive = request.enabled
         response.message = (
             'Inference enabled successfully' if request.enabled else 'Inference disabled'
@@ -105,6 +111,7 @@ class VisionNode(Node):
         return response
 
     def image_callback(self, msg):
+        """Updates self.latest_image with the latest camera frame."""
         if not self.isActive:
             return
 
@@ -112,6 +119,7 @@ class VisionNode(Node):
         self.latest_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
 
     def inference_callback(self, request, response):
+        """Gets request for either balls or evacuation points, and returns detections."""
         # self.get_logger().info('Inference has been called.')
 
         if not self.isActive:
@@ -124,6 +132,7 @@ class VisionNode(Node):
             response.success = False
             return response
 
+        # Sets a filter for either balls or evacuation points, depending on what is requested
         if request.message == 'ball':
             mode = 1
         elif request.message == 'evacpoint':
@@ -135,14 +144,18 @@ class VisionNode(Node):
 
         # start_time = time.time()
 
+        # Creates a copy of latest image so that latest_image can asynchronously update and not break things
         image_header = self.latest_image_header
         raw_frame = self.latest_image.copy()
         detection_msg = None
 
         # self.out.write(raw_frame)
+
+        # Convert frame to an array for processing
         resized_frame = cv2.resize(raw_frame, (self.imgsz, self.imgsz))
         input_data = np.ascontiguousarray(resized_frame)
 
+        # Create Hailo bindings
         bindings = self.configured_model.create_bindings()
         bindings.input(self.input_name).set_buffer(input_data)
 
@@ -162,6 +175,7 @@ class VisionNode(Node):
 
         # self.inferenceBusy = True
 
+        # Run inference and wait for return
         job = self.configured_model.run_async([bindings], bound_callback)
         job.wait(1000)
 
@@ -170,6 +184,7 @@ class VisionNode(Node):
 
             # self.get_logger().info(f'balls: {latest_balls}')
 
+            # Format data as a Detection2DArray to send to rescue node
             detection_msg = Detection2DArray()
             detection_msg.header.stamp = image_header.stamp
             detection_msg.header.frame_id = image_header.frame_id
@@ -193,6 +208,7 @@ class VisionNode(Node):
                 pxc = (px1 + px2) / 2
                 pyc = (py1 + py2) / 2
 
+                # # Backup code if colour detection breaks
                 # roi = vis_frame[py1:py2, px1:px2]
                 # gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
 
@@ -205,6 +221,7 @@ class VisionNode(Node):
                 #     material = 'black'
                 #     # self.get_logger().info(f'Mean is {mean} detected as black')
 
+                # Filter results based on request
                 if (
                     mode == 1
                     and material in ['silver', 'black']
@@ -228,8 +245,10 @@ class VisionNode(Node):
                     detection_msg.detections.append(detection)  # To be sent to ml_rescue_node
 
                 if self.debug:
+                    # Output an annotated frame with objects outlined
                     pxc, pyc, px1, py1, px2, py2 = map(int, (pxc, pyc, px1, py1, px2, py2))
 
+                    # Red outline for bounding box and dot for centre of object
                     cv2.rectangle(vis_frame, (px1, py1), (px2, py2), (0, 0, 255), 2)
                     cv2.circle(vis_frame, (pxc, pyc), 2, (0, 0, 255), -1)
                     # self.get_logger().info(
@@ -277,13 +296,14 @@ class VisionNode(Node):
         #     )
 
     def _inference_callback(self, completion_info, output_buffer=None, display_frame=None):
+        """Callback that runs post-processing to clean up data."""
 
         flat_buffer = output_buffer.flatten()
         detections = []
 
         idx = 0
-        vals = 5
-        max_dets = 100
+        vals = 5  # Each object has 5 points of data
+        max_dets = 100  # Maximum of 100 detections are returned, should lower in future
 
         # self.get_logger().info(f'output_buffer.shape = {output_buffer.shape}')
         # self.get_logger().info(f'flat_buffer[:80] = {flat_buffer[:80]}')
@@ -301,6 +321,7 @@ class VisionNode(Node):
 
             num_detections = max(0, min(num_detections, max_dets))  # just in case
 
+            # Iterate through detections
             for det_i in range(num_detections):
                 if idx + vals > len(flat_buffer):
                     self.get_logger().warn(
@@ -316,6 +337,7 @@ class VisionNode(Node):
 
                 idx += vals
 
+                # Only return data points with a high enough confidence
                 if score >= self.conf_threshold:
                     detections.append({
                         'box': [y1, x1, y2, x2],
