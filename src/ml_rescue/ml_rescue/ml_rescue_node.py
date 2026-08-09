@@ -220,6 +220,13 @@ class TRescue(LifecycleNode):
                 if self.robot.busy:
                     return
 
+                self.robot.drive(0, 45)
+                self.sub_state = 4
+
+            if self.sub_state == 4:
+                if self.robot.busy:
+                    return
+
                 self.get_logger().info('Entered rescue zone.')
                 self.transition_to_state(States.SCAN)
 
