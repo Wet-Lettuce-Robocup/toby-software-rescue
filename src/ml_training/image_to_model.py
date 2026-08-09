@@ -52,58 +52,62 @@ class ImageToModel:
         )
 
     def start_image_stream(self):
-        run = False
-        while True:
-            frame = picam2.capture_array()
-            if frame is not None:
-                undistorted_frame = cv2.undistort(
-                    frame,
-                    self.camera_matrix,
-                    self.distortion_coefficients,
-                    None,
-                    self.camera_matrix,
-                )
-                cv2.imshow('Camera', undistorted_frame)
-                wait = cv2.waitKey(1) & 0xFF  # Wait for 100ms
-                if wait == ord(' '):  # ESC key to exit
-                    run = True
-                if wait == ord('q'):
-                    return False
+        running = True
+        capturing = False
+        while running:
+            start_time = time.time()
 
-            while run:
-                start_time = time.time()
-                frame = picam2.capture_array()
-                if frame is not None:
-                    undistorted_frame = cv2.undistort(
-                        frame,
-                        self.camera_matrix,
-                        self.distortion_coefficients,
-                        None,
-                        self.camera_matrix,
-                    )
-                    cv2.imshow('Camera', undistorted_frame)
-                    wait = cv2.waitKey(1) & 0xFF  # Wait for 100ms
-                    if wait == ord('q'):  # 'q' to exit
-                        print('Exiting image capture')
-                        picam2.stop()
-                        cv2.destroyAllWindows()
-                        return False
-                    elif wait == ord(' '):
-                        run = False
-                    else:
-                        image_path = f'raw_images/image_{self.image_count}.jpg'
+            cropped_frame = self.capture_frame(picam2.capture_array())
 
-                        cv2.imwrite(image_path, undistorted_frame)
+            wait = cv2.waitKey(1) & 0xFF  # Wait for 100ms
+            if wait == ord(' '):  # ESC key to exit
+                capturing = not capturing
+            if wait == ord('q'):
+                running = False
 
-                        print(f'Captured {image_path}')
-                        self.image_count += 1
-                else:
-                    print('Failed to capture image')
-                    print(f'Frame: {frame}')
-                elapsed_time = time.time() - start_time
-                if elapsed_time < SPF:
-                    time.sleep(SPF - elapsed_time)
+            if capturing:
+                image_path = f'raw_images/image_{self.image_count}.jpg'
+
+                cv2.imwrite(image_path, cropped_frame)
+
+                print(f'Captured {image_path}')
+                self.image_count += 1
+
+            elapsed_time = time.time() - start_time
+            if elapsed_time < SPF:
+                time.sleep(SPF - elapsed_time)
+
+    def capture_frame(self, frame):
+        if frame is not None:
+            undistorted_frame = cv2.undistort(
+                frame,
+                self.camera_matrix,
+                self.distortion_coefficients,
+                None,
+                self.camera_matrix,
+            )
+
+            cropped_frame, top_left, bottom_right = self.crop_frame(undistorted_frame)
+            display_frame = undistorted_frame.copy()
+            cv2.rectangle(display_frame, top_left, bottom_right, (0, 0, 255), 2)
+            cv2.imshow('Frame', display_frame)
+
+            return cropped_frame
+
+    def crop_frame(self, frame):
+        height, width = frame.shape[:2]
+
+        start_y = int(height / 3)
+        end_y = height
+
+        side_margin = int(width * 0.05)
+        start_x = side_margin
+        end_x = width - side_margin
+
+        return (frame[start_y:end_y, start_x:end_x]), (start_x, start_y), (end_x - 1, end_y - 1)
 
 
 robot = ImageToModel()
 robot.start_image_stream()
+picam2.stop()
+cv2.destroyAllWindows()
