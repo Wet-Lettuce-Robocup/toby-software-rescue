@@ -21,4 +21,6 @@ run `xhost +local:docker` in VNC on the raspberry pi
 ros2 run camera_calibration cameracalibrator --size 8x6 --square 0.025 --no-service-check --ros-args -r camera:=/front_camera/camera_node/camera_info -r image:=/front_camera/camera_node/image_raw
 
 when exec'ed into the docker container
+
+docker cp robocup-ros-ros-1:/tmp/calibrationdata.tar.gz /home/robot/Desktop/calibrationdata.tar.gz
 ```

@@ -556,7 +556,7 @@ class TRescue(LifecycleNode):
                 self.get_logger().warn(f'Class id is not valid: {class_id}')
                 continue
 
-            angle = math.atan((centre_x - self.cx) / self.fx)
+            angle = math.degrees(math.atan((centre_x - self.cx) / self.fx))
 
             # self.get_logger().info(
             #     f'Ball: x={centre_x:.1f}, y={centre_y:.1f}, '
