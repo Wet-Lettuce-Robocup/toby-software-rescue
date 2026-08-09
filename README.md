@@ -16,6 +16,9 @@ git push --mirror https://github.com/user/new-repo.git
 \* Repository can be found at [https://github.com/Wet-Lettuce-Robocup/toby-software-rescue](https://github.com/Wet-Lettuce-Robocup/toby-software-rescue)
 
 ### Camera Calibration
+run `xhost +local:docker` in VNC on the raspberry pi
 ```
-ros2 run camera_calibration cameracalibrator --size 8x6 --square 0.017 --no-service-check --ros-args -r camera:=/front_camera/camera_node/camera_info -r image:=/front_camera/camera_node/image_raw
+ros2 run camera_calibration cameracalibrator --size 8x6 --square 0.025 --no-service-check --ros-args -r camera:=/front_camera/camera_node/camera_info -r image:=/front_camera/camera_node/image_raw
+
+when exec'ed into the docker container
 ```

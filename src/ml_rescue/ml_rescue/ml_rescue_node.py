@@ -216,14 +216,14 @@ class TRescue(LifecycleNode):
                 self.robot.drive(0.2)
                 self.sub_state = 3
 
+            # if self.sub_state == 3:
+            #     if self.robot.busy:
+            #         return
+
+            #     self.robot.drive(0, 45)
+            #     self.sub_state = 4
+
             if self.sub_state == 3:
-                if self.robot.busy:
-                    return
-
-                self.robot.drive(0, 45)
-                self.sub_state = 4
-
-            if self.sub_state == 4:
                 if self.robot.busy:
                     return
 
@@ -732,6 +732,7 @@ class Movement:
     def drive(self, distance, angle=0, velocity=100):
         self.node.get_logger().info(f'Drive called with distance {distance} and angle {angle}')
         distance *= 510
+        angle *= 2.1
         linear_time = abs(distance) / abs(velocity) if velocity != 0 and distance != 0 else 0.0
         angular_time = abs(angle) / abs(velocity) if velocity != 0 and angle != 0 else 0.0
         time_required = max(linear_time, angular_time)
