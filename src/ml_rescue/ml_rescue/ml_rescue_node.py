@@ -75,9 +75,7 @@ class TRescue(LifecycleNode):
         self.claw_tof_subscriber: Subscription | None = None
         self.side_tof_subscriber: Subscription | None = None
 
-        self.rescue_state_srv = self.create_service(
-            SetRescueState, 'set_rescue_state', self.set_rescue_state_callback
-        )
+        self.rescue_state_srv: Service | None = None
         self.inference_srv: Service | None = None
         self.rescue_detections_cli: Client | None = None
         self.enable_inference_cli: Client | None = None
@@ -88,6 +86,7 @@ class TRescue(LifecycleNode):
 
         # Setup variables for data processing
         self.data = None
+        self.last_data = None
         self.inference_returned = False
         self.target_object = None
         # self.obstacles: list[list] = []
@@ -98,9 +97,11 @@ class TRescue(LifecycleNode):
         self.front_tof_dist = None
         self.claw_tof_dist = None
         self.side_tof_dist = None
-        self.servo_complete = None
 
-        self.target_time_elapsed = 0
+        self.servo_busy = False
+        self.inference_request_pending = False
+
+        self.target_timestamp = 0
 
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Configuring ml_rescue node...')
@@ -114,6 +115,12 @@ class TRescue(LifecycleNode):
         self.lift_pub = self.create_client(ServoCommand, '/servo/lift')
         self.gate_pub = self.create_client(ServoCommand, '/servo/tray_release')
 
+        self.rescue_state_srv = self.create_service(
+            SetRescueState, 'set_rescue_state', self.set_rescue_state_callback
+        )
+        self.inference_srv = self.create_service(
+            SendInference, 'detections', self.send_inference_data
+        )
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.rescue_active_pub = self.create_publisher(Bool, '/rescue_active', 10)
         self.led_pub = self.create_publisher(Int32, '/front_led/target_brightness', 10)
@@ -127,11 +134,8 @@ class TRescue(LifecycleNode):
         self.side_tof_subscriber = self.create_subscription(
             Int32, '/tof/side', self.side_tof_callback, 10
         )
-        self.inference_srv = self.create_service(
-            SendInference, 'detections', self.send_inference_data
-        )
-        self.enable_inference_cli = self.create_client(EnableInference, 'enable_inference')
 
+        self.enable_inference_cli = self.create_client(EnableInference, 'enable_inference')
         self.rescue_detections_cli = self.create_client(InferenceDetections, 'rescue_detections')
 
         while not self.rescue_detections_cli.wait_for_service(timeout_sec=1.0):
@@ -155,7 +159,10 @@ class TRescue(LifecycleNode):
         self.claw_tof_dist = None
         self.side_tof_dist = None
 
-        self.target_time_elapsed = 0
+        self.servo_busy = False
+        self.inference_request_pending = False
+
+        self.target_timestamp = 0
 
         if self.timer:
             self.timer.reset()
@@ -193,7 +200,7 @@ class TRescue(LifecycleNode):
         if not self.isActive:
             return
 
-        if self.current_state == States.ENTER:
+        elif self.current_state == States.ENTER:
             now = self.get_clock().now()
             # Enter the rescue zone
             if not self.state_started:
@@ -201,36 +208,36 @@ class TRescue(LifecycleNode):
                 self.state_started = True
 
                 # Wait 5 seconds without blocking state_loop
-                self.target_time_elapsed = now + rclpy.duration.Duration(seconds=5.0)
+                self.target_timestamp = now + rclpy.duration.Duration(seconds=5.0)
                 self.stop_moving()
 
                 self.sub_state = 1
 
-            if now >= self.target_time_elapsed and self.sub_state == 1:
+            elif now >= self.target_timestamp and self.sub_state == 1:
                 # move into centre of rescue zone
                 self.set_inference(True)
 
                 self.lift('up')
                 self.sub_state = 2
 
-            if self.sub_state == 2 and self.servo_complete:
+            elif self.sub_state == 2 and not self.servo_busy:
                 self.claw('close')
 
                 self.sub_state = 3
 
-            if self.sub_state == 3 and not self.robot.busy and self.servo_complete:
+            elif self.sub_state == 3 and not self.robot.busy and not self.servo_busy:
                 # Send drive command and wait for it to return without blocking state_loop
                 self.robot.drive(0.2)
                 self.sub_state = 4
 
-            # if self.sub_state == 3:
+            # elif self.sub_state == 3:
             #     if self.robot.busy:
             #         return
 
             #     self.robot.drive(0, 45)
             #     self.sub_state = 4
 
-            if self.sub_state == 4:
+            elif self.sub_state == 4:
                 if self.robot.busy:
                     return
 
@@ -286,11 +293,8 @@ class TRescue(LifecycleNode):
                     elif obj_type == 'red' and self.target_dropzone == 'green':
                         self.target_dropzone = 'red'
                         self.target_object = i
-                elif (
-                    obj_type == 'silver'
-                    and self.balls_found in [0, 1]
-                    or obj_type == 'black'
-                    and self.balls_found == 2
+                elif (obj_type == 'silver' and self.balls_found in [0, 1]) or (
+                    obj_type == 'black' and self.balls_found == 2
                 ):
                     # If not all balls found, target silver, then black if both silvers are found
                     self.target_object = i
@@ -321,29 +325,23 @@ class TRescue(LifecycleNode):
                 self.claw('open')
                 self.sub_state = 1
 
-            if not self.robot.busy and self.sub_state == 1 and self.servo_complete:
+            elif not self.robot.busy and self.sub_state == 1 and not self.servo_busy:
                 self.robot.drive(0, bearing)  # need to test and see how far robot turns
                 self.sub_state = 2
 
-            if self.sub_state == 2:
-                if self.robot.busy:
-                    return
-
+            elif self.sub_state == 2 and not self.robot.busy:
                 self.get_logger().info('Robot is facing ball')
 
                 self.robot.drive(distance)
                 self.sub_state = 3
 
-            if self.sub_state == 3:
-                if self.robot.busy:
-                    return
-
+            elif self.sub_state == 3 and not self.robot.busy:
                 # TODO: Add a check to make sure ball is in correct spot before picking up
 
                 self.lift('down')
                 self.sub_state = 4
 
-            if self.sub_state == 4 and self.servo_complete:
+            elif self.sub_state == 4 and not self.servo_busy:
                 self.get_logger().info('Robot is at ball')
 
                 self.transition_to_state(States.GRAB_BALL)
@@ -360,25 +358,22 @@ class TRescue(LifecycleNode):
 
                 self.sub_state = 1
 
-            if self.sub_state == 1 and not self.robot.busy and self.servo_complete:
+            elif self.sub_state == 1 and not self.robot.busy and not self.servo_busy:
                 self.get_logger().info('Reversing...')
                 self.robot.drive(-0.05)
                 self.sub_state = 2
 
-            if self.sub_state == 2:
-                if self.robot.busy:
-                    return
-
+            elif self.sub_state == 2 and not self.robot.busy:
                 self.lift('up')
                 self.sub_state = 3
 
-            if self.sub_state == 3 and self.servo_complete:
+            elif self.sub_state == 3 and not self.servo_busy:
                 # TODO: Add a check to make sure ball is actually picked up (limit switch)
 
-                self.target_time_elapsed = now + rclpy.duration.Duration(seconds=3.0)
+                self.target_timestamp = now + rclpy.duration.Duration(seconds=3.0)
                 self.sub_state = 4
 
-            if now >= self.target_time_elapsed and self.sub_state == 4:
+            elif now >= self.target_timestamp and self.sub_state == 4:
                 self.get_logger().info('Back to scanning')
                 self.transition_to_state(States.SCAN)
 
@@ -392,19 +387,17 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Targetting evacuation point')
                 self.state_started = True
 
-                if not self.robot.busy:
-                    self.robot.drive(0, bearing)
-                    self.sub_state = 1
+                self.sub_state = 0
 
-            if self.sub_state == 1:
-                if self.robot.busy:
-                    return
+            elif self.sub_state == 0 and not self.robot.busy:
+                self.robot.drive(0, bearing)
+                self.sub_state = 1
+
+            elif self.sub_state == 1 and not self.robot.busy:
                 self.robot.drive(distance)
                 self.sub_state = 2
 
-            if self.sub_state == 2:
-                if self.robot.busy:
-                    return
+            elif self.sub_state == 2 and not self.robot.busy:
                 self.transition_to_state(States.DUMP_DROPZONE)
 
         elif self.current_state == States.DUMP_DROPZONE:
@@ -418,37 +411,36 @@ class TRescue(LifecycleNode):
                 self.robot.drive(-0.05)
                 self.sub_state = 1
 
-            if self.sub_state == 1 and not self.robot.busy:
+            elif self.sub_state == 1 and not self.robot.busy:
                 self.robot.drive(0, 180)
                 self.sub_state = 2
 
-            if self.sub_state == 2 and not self.robot.busy:
+            elif self.sub_state == 2 and not self.robot.busy:
                 self.robot.drive(0.1)
                 self.sub_state = 3
 
-            if self.sub_state == 3 and not self.robot.busy and self.servo_complete:
+            elif self.sub_state == 3 and not self.robot.busy and not self.servo_busy:
                 if self.target_dropzone == 'red':
                     self.claw('open')
-
-                if not self.servo_complete:
-                    return
-
-                self.gate('open')
                 self.sub_state = 4
 
-            if self.sub_state == 4 and self.servo_complete:
-                self.target_time_elapsed = now + rclpy.duration.Duration(seconds=3.0)
+            elif self.sub_state == 4 and not self.servo_busy:
+                self.gate('open')
                 self.sub_state = 5
 
-            if now >= self.target_time_elapsed and self.sub_state == 5 and self.servo_complete:
-                self.gate('close')
+            elif self.sub_state == 5 and not self.servo_busy:
+                self.target_timestamp = now + rclpy.duration.Duration(seconds=3.0)
                 self.sub_state = 6
 
-            if self.sub_state == 6 and self.servo_complete:
-                self.claw('close')
+            elif now >= self.target_timestamp and self.sub_state == 6 and not self.servo_busy:
+                self.gate('close')
                 self.sub_state = 7
 
-            if self.sub_state == 7 and self.servo_complete:
+            elif self.sub_state == 7 and not self.servo_busy:
+                self.claw('close')
+                self.sub_state = 8
+
+            elif self.sub_state == 8 and not self.servo_busy:
                 if self.target_dropzone == 'green':
                     self.transition_to_state(States.SCAN)
                 elif self.target_dropzone == 'red':
@@ -463,11 +455,13 @@ class TRescue(LifecycleNode):
                 self.set_inference(False)
                 self.state_started = True
 
-                if not self.robot.busy:
-                    self.robot.drive(0.2)
-                    self.sub_state = 1
+                self.sub_state = 0
 
-            if self.sub_state == 1 and not self.robot.busy:
+            elif self.sub_state == 0 and not self.robot.busy:
+                self.robot.drive(0.2)
+                self.sub_state = 1
+
+            elif self.sub_state == 1 and not self.robot.busy:
                 status, angle = self.left_wall_follow()
 
                 if status == 'exit':
@@ -480,25 +474,28 @@ class TRescue(LifecycleNode):
                     self.sub_state = 2
                 elif status == 'wall':
                     self.start_moving(0.2, angle)
+                elif status == 'error':
+                    self.get_logger().warn('No tof data for wall following')
+                    self.stop_moving()
 
-            if self.sub_state == 2:
-                if self.robot.busy:
-                    return
+            elif self.sub_state == 2 and not self.robot.busy:
                 self.sub_state = 1
 
         else:
             self.get_logger().warn('Invalid rescue state detected')
 
-    def left_wall_follow(self, target_distance=150):
+    def left_wall_follow(self, target_distance=0.15):
         # Turn right if wall in front, exit rescue if no wall to left, else go straight
         left_dist = self.side_tof_dist
         front_dist = self.front_tof_dist
 
-        if front_dist < 200:
-            return 'right'
+        if front_dist is None or left_dist is None:
+            return 'error', 0.0
 
-        if left_dist >= 400:
-            return 'exit'
+        if front_dist < 0.2:
+            return 'right', 0.0
+        if left_dist >= 0.4:
+            return 'exit', 0.0
 
         error = target_distance - left_dist
 
@@ -508,22 +505,28 @@ class TRescue(LifecycleNode):
         return 'wall', angle
 
     def request_inference(self, message):
+        if self.inference_request_pending:
+            return
         # Request inference data from vision_node
         request = InferenceDetections.Request()
 
         request.message = message
 
         self.inference_returned = False
+        self.inference_request_pending = True
 
         future = self.rescue_detections_cli.call_async(request)
         future.add_done_callback(self._parse_results)
 
     def _parse_results(self, future):
+        self.inference_request_pending = False
         # Function to handle results and estimate distance
         try:
             msg = future.result()
         except Exception as e:
             self.get_logger().error(f'Service call failed: {e}')
+            self.data = None
+            self.inference_returned = True
             return
 
         old_data = self.data if self.data is not None else []
@@ -635,9 +638,7 @@ class TRescue(LifecycleNode):
             response.success = False
             return response
 
-        for i in enumerate(all_publish_data):
-            valid_publish_data = all_publish_data[i]
-
+        for valid_publish_data in all_publish_data:
             response.type.append(valid_publish_data[0])
             response.confidence.append(valid_publish_data[1])
             response.distance.append(valid_publish_data[2])
@@ -709,7 +710,7 @@ class TRescue(LifecycleNode):
         self.servo_request('gate_pub', angle)
 
     def servo_request(self, servo, angle):
-        self.servo_complete = False
+        self.servo_busy = True
 
         request = ServoCommand.Request()
         request.angle = angle
@@ -717,47 +718,51 @@ class TRescue(LifecycleNode):
         client = getattr(self, servo)
         future = client.call_async(request)
 
-        self.lift_future = future
+        future.add_done_callback(self.servo_callback)
 
-        future.add_done_callback(self.servo_complete_callback)
-
-    def servo_complete_callback(self, future):
+    def servo_callback(self, future):
         try:
             response = future.result()
 
             if response.success:
-                self.servo = True
+                self.servo_busy = False
             else:
                 self.get_logger().error(f'Servo call failed: {response.message}')
+                self.servo_busy = False
 
         except Exception as e:
             self.get_logger().error(f'Servo service failed: {e}')
+            self.servo_busy = False
 
     def front_tof_callback(self, msg):
         try:
-            self.front_tof_distance = float(msg.data) / 1000.0
+            self.front_tof_dist = float(msg.data) / 1000.0
         except Exception as e:
             self.get_logger().warn(f'Front tof error {e} with msg {msg}')
-            self.front_tof_distance = None
+            self.front_tof_dist = None
 
     def claw_tof_callback(self, msg):
         try:
-            self.claw_tof_distance = float(msg.data) / 1000.0
+            self.claw_tof_dist = float(msg.data) / 1000.0
         except Exception as e:
             self.get_logger().warn(f'Claw tof error {e} with msg {msg}')
-            self.claw_tof_distance = None
+            self.claw_tof_dist = None
 
     def side_tof_callback(self, msg):
         try:
-            self.side_tof_distance = float(msg.data) / 1000.0
+            self.side_tof_dist = float(msg.data) / 1000.0
         except Exception as e:
             self.get_logger().warn(f'Side tof error {e} with msg {msg}')
-            self.side_tof_distance = None
+            self.side_tof_dist = None
 
     def transition_to_state(self, new_state: States):
         self.current_state = new_state
         self.state_started = False
         self.sub_state = 0
+
+        if new_state == States.SCAN:
+            self.data = None
+            self.inference_returned = False
 
 
 class Movement:

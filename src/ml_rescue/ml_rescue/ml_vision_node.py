@@ -100,7 +100,7 @@ class VisionNode(Node):
         self.get_logger().info(f'Video writer opened: {self.out.isOpened()}')
 
     def rescue_active_callback(self, request, response):
-        """Callback for enabling/disabling inference."""
+        """Enables/disables inference functionality."""
         self.isActive = request.enabled
         response.message = (
             'Inference enabled successfully' if request.enabled else 'Inference disabled'
@@ -111,7 +111,7 @@ class VisionNode(Node):
         return response
 
     def image_callback(self, msg):
-        """Callback for updating self.latest_image with the latest camera frame."""
+        """Updates self.latest_image with the latest camera frame."""
         if not self.isActive:
             return
 
@@ -119,7 +119,7 @@ class VisionNode(Node):
         self.latest_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
 
     def inference_callback(self, request, response):
-        """Callback for requesting either balls or evacuation points, and returning detections."""
+        """Handles requests for either balls or evacuation points, and returns detections."""
         # self.get_logger().info('Inference has been called.')
 
         if not self.isActive:
@@ -296,7 +296,7 @@ class VisionNode(Node):
         #     )
 
     def _inference_callback(self, completion_info, output_buffer=None, display_frame=None):
-        """Callback for post-processing to clean up data."""
+        """Post-processing to clean up inference data."""
         flat_buffer = output_buffer.flatten()
         detections = []
 
