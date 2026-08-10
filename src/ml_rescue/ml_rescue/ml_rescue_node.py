@@ -110,9 +110,9 @@ class TRescue(LifecycleNode):
         self.timer = self.create_timer(0.05, self.state_loop)
         self.timer.cancel()
 
-        self.claw_pub = self.create_client(ServoCommand, '/servo/grab', 10)
-        self.lift_pub = self.create_client(ServoCommand, '/servo/lift', 10)
-        self.gate_pub = self.create_client(ServoCommand, '/servo/tray_release', 10)
+        self.claw_pub = self.create_client(ServoCommand, '/servo/grab')
+        self.lift_pub = self.create_client(ServoCommand, '/servo/lift')
+        self.gate_pub = self.create_client(ServoCommand, '/servo/tray_release')
 
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.rescue_active_pub = self.create_publisher(Bool, '/rescue_active', 10)
