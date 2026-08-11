@@ -99,6 +99,7 @@ class TRescue(LifecycleNode):
         self.inference_request_pending = False
 
         self.servo_available_time = 0
+        self.servo_timeout = 0
         self.target_timestamp = 0
 
     def on_configure(self, state: State) -> TransitionCallbackReturn:
@@ -161,6 +162,7 @@ class TRescue(LifecycleNode):
         self.inference_request_pending = False
 
         self.servo_available_time = 0
+        self.servo_timeout = 0
         self.target_timestamp = 0
 
         if self.timer:
@@ -259,6 +261,7 @@ class TRescue(LifecycleNode):
                 if self.balls_found == 3:
                     # If all balls are found, search for evacuation points
                     self.request_inference('evacpoint')
+                    self.get_logger().info('Requesting point')
                 else:
                     self.request_inference('ball')
 
@@ -280,6 +283,8 @@ class TRescue(LifecycleNode):
                 # self.get_logger().info('No objects detected, requesting inference again...')
                 if self.balls_found == 3 and not self.inference_request_pending:
                     self.request_inference('evacpoint')
+                    self.get_logger().info('Requesting point')
+
                 else:
                     self.request_inference('ball')
                 return
@@ -405,7 +410,7 @@ class TRescue(LifecycleNode):
             distance = self.target_object[2] - 0.05
 
             if not self.state_started:
-                self.get_logger().info('Targetting evacuation point')
+                self.get_logger().info('Targeting evacuation point')
                 self.state_started = True
 
                 self.sub_state = 0
@@ -428,7 +433,7 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Releasing balls')
                 self.state_started = True
 
-                self.robot.drive(-0.05)
+                self.robot.drive(-0.1)
                 self.sub_state = 1
 
             elif self.sub_state == 1 and not self.robot.busy:
@@ -436,7 +441,7 @@ class TRescue(LifecycleNode):
                 self.sub_state = 2
 
             elif self.sub_state == 2 and not self.robot.busy:
-                self.robot.drive(0.1)
+                self.robot.drive(-0.15)
                 self.sub_state = 3
 
             elif self.sub_state == 3 and not self.robot.busy and not self.servo_busy:
@@ -755,6 +760,7 @@ class TRescue(LifecycleNode):
                 self.servo_available_time = self.get_clock().now() + rclpy.duration.Duration(
                     seconds=1.0
                 )
+                self.servo_timeout = self.get_clock().now() + rclpy.duration.Duration(seconds=5.0)
             else:
                 self.get_logger().error(f'Servo call failed: {response.message}')
                 self.servo_busy = False

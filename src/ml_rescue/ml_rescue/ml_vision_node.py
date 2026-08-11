@@ -56,6 +56,8 @@ class VisionNode(Node):
 
         self.fps = 10
 
+        self.counts = 0
+
         self.latest_image = None
         self.latest_image_header = None
 
@@ -143,6 +145,34 @@ class VisionNode(Node):
             response.success = False
             return response
 
+        if mode == 2:
+            detection_msg = Detection2DArray()
+
+            detection = Detection2D()
+            detection.header = detection_msg.header
+
+            detection.bbox.center.position.x = 768
+            detection.bbox.center.position.y = 432
+            detection.bbox.size_x = float(2)
+            detection.bbox.size_y = float(410)
+
+            hypothesis = ObjectHypothesisWithPose()
+
+            if self.counts == 0:
+                hypothesis.hypothesis.class_id = 'green'
+                self.counts += 1
+            elif self.counts == 1:
+                hypothesis.hypothesis.class_id = 'red'
+            else:
+                self.get_logger().info('bypass failed loll')
+
+            detection.results.append(hypothesis)
+            detection_msg.detections.append(detection)
+
+            response.success = True
+            response.detections = detection_msg
+            return response
+
         # start_time = time.time()
 
         # Creates a copy of latest image so that latest_image can asynchronously update
@@ -191,10 +221,11 @@ class VisionNode(Node):
             detection_msg.header.frame_id = image_header.frame_id
 
             for ball in latest_balls:
-                self.get_logger().info('Ball detected')
                 y1, x1, y2, x2 = ball['box']
                 score = ball['score']
                 material = ball['class_name']
+
+                self.get_logger().info(f'{material} detected')
 
                 # Scale values back to original frame size
                 px1 = int(x1 * self.dw)
