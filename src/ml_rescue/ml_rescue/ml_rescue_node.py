@@ -173,9 +173,6 @@ class TRescue(LifecycleNode):
         self.isActive = False
         self.set_inference(False)
 
-        if self.led_pub:
-            self.led_pub.publish(Int32(data=0))
-
         if self.timer:
             self.timer.cancel()
 
@@ -316,7 +313,6 @@ class TRescue(LifecycleNode):
             if self.target_object is not None:
                 # stop spinning if target acquired
                 self.stop_moving()
-                self.led_pub.publish(Int32(data=0))
                 if self.balls_found < 3:
                     self.transition_to_state(States.TARGET_BALL)
                 else:
@@ -477,6 +473,8 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Exiting rescue.....')
                 self.set_inference(False)
                 self.state_started = True
+
+                self.led_pub.publish(Int32(data=0))
 
                 self.sub_state = 0
 
