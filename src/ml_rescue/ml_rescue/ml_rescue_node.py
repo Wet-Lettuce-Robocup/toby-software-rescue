@@ -101,6 +101,7 @@ class TRescue(LifecycleNode):
         self.servo_busy = False
         self.inference_request_pending = False
 
+        self.servo_available_time = 0
         self.target_timestamp = 0
 
     def on_configure(self, state: State) -> TransitionCallbackReturn:
@@ -162,6 +163,7 @@ class TRescue(LifecycleNode):
         self.servo_busy = False
         self.inference_request_pending = False
 
+        self.servo_available_time = 0
         self.target_timestamp = 0
 
         if self.timer:
@@ -199,17 +201,19 @@ class TRescue(LifecycleNode):
         """Core loop which runs through states and executes main logic tasks."""
         if not self.isActive:
             return
-
-        elif self.current_state == States.ENTER:
+        else:
             now = self.get_clock().now()
+
+        if self.current_state == States.ENTER:
             # Enter the rescue zone
             if not self.state_started:
                 self.get_logger().info('Entering rescue zone')
                 self.state_started = True
 
-                # Wait 5 seconds without blocking state_loop
-                self.target_timestamp = now + rclpy.duration.Duration(seconds=5.0)
                 self.stop_moving()
+
+                # Wait 2 seconds without blocking state_loop
+                self.target_timestamp = now + rclpy.duration.Duration(seconds=2.0)
 
                 self.sub_state = 1
 
@@ -220,12 +224,17 @@ class TRescue(LifecycleNode):
                 self.lift('up')
                 self.sub_state = 2
 
-            elif self.sub_state == 2 and not self.servo_busy:
+            elif self.sub_state == 2 and not self.servo_busy and now >= self.servo_available_time:
                 self.claw('close')
 
                 self.sub_state = 3
 
-            elif self.sub_state == 3 and not self.robot.busy and not self.servo_busy:
+            elif (
+                self.sub_state == 3
+                and not self.robot.busy
+                and not self.servo_busy
+                and now >= self.servo_available_time
+            ):
                 # Send drive command and wait for it to return without blocking state_loop
                 self.robot.drive(0.2)
                 self.sub_state = 4
@@ -237,10 +246,7 @@ class TRescue(LifecycleNode):
             #     self.robot.drive(0, 45)
             #     self.sub_state = 4
 
-            elif self.sub_state == 4:
-                if self.robot.busy:
-                    return
-
+            elif self.sub_state == 4 and not self.robot.busy:
                 self.get_logger().info('Entered rescue zone.')
                 self.transition_to_state(States.SCAN)
 
@@ -258,7 +264,7 @@ class TRescue(LifecycleNode):
 
                 if self.data is None or self.data == []:
                     # Spin robot a little bit to seek out more balls
-                    self.start_moving(0, 0.015)
+                    self.start_moving(0, 0.02)
                     return
 
             if not self.inference_returned:
@@ -325,7 +331,12 @@ class TRescue(LifecycleNode):
                 self.claw('open')
                 self.sub_state = 1
 
-            elif not self.robot.busy and self.sub_state == 1 and not self.servo_busy:
+            elif (
+                not self.robot.busy
+                and self.sub_state == 1
+                and not self.servo_busy
+                and now >= self.servo_available_time
+            ):
                 self.robot.drive(0, bearing)  # need to test and see how far robot turns
                 self.sub_state = 2
 
@@ -341,13 +352,12 @@ class TRescue(LifecycleNode):
                 self.lift('down')
                 self.sub_state = 4
 
-            elif self.sub_state == 4 and not self.servo_busy:
+            elif self.sub_state == 4 and not self.servo_busy and now >= self.servo_available_time:
                 self.get_logger().info('Robot is at ball')
 
                 self.transition_to_state(States.GRAB_BALL)
 
         elif self.current_state == States.GRAB_BALL:
-            now = self.get_clock().now()
             # Pick up ball
             if not self.state_started:
                 self.get_logger().info('Grabbing ball...')
@@ -358,7 +368,12 @@ class TRescue(LifecycleNode):
 
                 self.sub_state = 1
 
-            elif self.sub_state == 1 and not self.robot.busy and not self.servo_busy:
+            elif (
+                self.sub_state == 1
+                and not self.robot.busy
+                and not self.servo_busy
+                and now >= self.servo_available_time
+            ):
                 self.get_logger().info('Reversing...')
                 self.robot.drive(-0.05)
                 self.sub_state = 2
@@ -367,7 +382,7 @@ class TRescue(LifecycleNode):
                 self.lift('up')
                 self.sub_state = 3
 
-            elif self.sub_state == 3 and not self.servo_busy:
+            elif self.sub_state == 3 and not self.servo_busy and now >= self.servo_available_time:
                 # TODO: Add a check to make sure ball is actually picked up (limit switch)
 
                 self.target_timestamp = now + rclpy.duration.Duration(seconds=3.0)
@@ -402,7 +417,6 @@ class TRescue(LifecycleNode):
 
         elif self.current_state == States.DUMP_DROPZONE:
             # Release balls into dropzone
-            now = self.get_clock().now()
 
             if not self.state_started and not self.robot.busy:
                 self.get_logger().info('Releasing balls')
@@ -424,11 +438,11 @@ class TRescue(LifecycleNode):
                     self.claw('open')
                 self.sub_state = 4
 
-            elif self.sub_state == 4 and not self.servo_busy:
+            elif self.sub_state == 4 and not self.servo_busy and now >= self.servo_available_time:
                 self.gate('open')
                 self.sub_state = 5
 
-            elif self.sub_state == 5 and not self.servo_busy:
+            elif self.sub_state == 5 and not self.servo_busy and now >= self.servo_available_time:
                 self.target_timestamp = now + rclpy.duration.Duration(seconds=3.0)
                 self.sub_state = 6
 
@@ -436,11 +450,11 @@ class TRescue(LifecycleNode):
                 self.gate('close')
                 self.sub_state = 7
 
-            elif self.sub_state == 7 and not self.servo_busy:
+            elif self.sub_state == 7 and not self.servo_busy and now >= self.servo_available_time:
                 self.claw('close')
                 self.sub_state = 8
 
-            elif self.sub_state == 8 and not self.servo_busy:
+            elif self.sub_state == 8 and not self.servo_busy and now >= self.servo_available_time:
                 if self.target_dropzone == 'green':
                     self.transition_to_state(States.SCAN)
                 elif self.target_dropzone == 'red':
@@ -725,11 +739,14 @@ class TRescue(LifecycleNode):
         try:
             response = future.result()
             self.get_logger().info(
-                f'Servo call result: {response.message}, success = {response.success}'
+                f'Servo call result: {response.message} success = {response.success}'
             )
 
             if response.success:
                 self.servo_busy = False
+                self.servo_available_time = self.get_clock().now() + rclpy.duration.Duration(
+                    seconds=1.0
+                )
             else:
                 self.get_logger().error(f'Servo call failed: {response.message}')
                 self.servo_busy = False
