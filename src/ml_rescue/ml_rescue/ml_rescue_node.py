@@ -50,9 +50,6 @@ class TRescue(LifecycleNode):
     cx = 764.89803
     cy = 408.4118
 
-    target_x = 400  # to change
-    target_width = 400  # to change
-
     def __init__(self) -> None:
         super().__init__('ml_rescue')
         self.current_state = States.ENTER
@@ -366,10 +363,15 @@ class TRescue(LifecycleNode):
 
         elif self.current_state == States.GRAB_BALL:
             # Pick up ball
-            if not self.state_started:
+            if not self.state_started and not self.robot.busy:
                 self.get_logger().info('Grabbing ball...')
                 self.state_started = True
 
+                self.robot.drive(0.1)
+
+                self.sub_state = 0
+
+            if self.sub_state == 0 and not self.robot.busy and not self.servo_busy:
                 self.claw('close')
                 self.balls_found += 1
 
@@ -382,7 +384,7 @@ class TRescue(LifecycleNode):
                 and now >= self.servo_available_time
             ):
                 self.get_logger().info('Reversing...')
-                self.robot.drive(-0.05)
+                self.robot.drive(-0.1)
                 self.sub_state = 2
 
             elif self.sub_state == 2 and not self.robot.busy:
