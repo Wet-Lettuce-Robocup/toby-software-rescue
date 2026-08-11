@@ -272,6 +272,7 @@ class TRescue(LifecycleNode):
                 return
 
             current_data = self.data
+            self.data = None
 
             if current_data is None or len(current_data) == 0:
                 # Request inference data again if nothing found
@@ -311,7 +312,6 @@ class TRescue(LifecycleNode):
                     # In future add handling for multiple obstacles for avoidance
 
             if self.target_object is not None:
-                self.data = None
                 # stop spinning if target acquired
                 self.stop_moving()
                 if self.balls_found < 3:
