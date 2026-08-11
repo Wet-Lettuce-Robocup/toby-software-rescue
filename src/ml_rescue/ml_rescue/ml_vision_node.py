@@ -278,8 +278,8 @@ class VisionNode(Node):
         except queue.Empty:
             pass
 
+        self.get_logger().info('- - - Sending detections - - -')
         if detection_msg is not None and detection_msg.detections:
-            # self.get_logger().info('- - - Publishing detections - - -')
             response.success = True
             response.detections = detection_msg
 

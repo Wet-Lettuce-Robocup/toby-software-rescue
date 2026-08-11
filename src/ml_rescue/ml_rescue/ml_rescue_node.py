@@ -278,7 +278,7 @@ class TRescue(LifecycleNode):
                 # Request inference data again if nothing found
 
                 # self.get_logger().info('No objects detected, requesting inference again...')
-                if self.balls_found == 3:
+                if self.balls_found == 3 and not self.inference_request_pending:
                     self.request_inference('evacpoint')
                 else:
                     self.request_inference('ball')
@@ -364,7 +364,7 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Grabbing ball...')
                 self.state_started = True
 
-                self.robot.drive(0.06, velocity=50)
+                self.robot.drive(0.1, velocity=50)
 
                 self.sub_state = 0
 
