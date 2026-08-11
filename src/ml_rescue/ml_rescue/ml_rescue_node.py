@@ -311,6 +311,7 @@ class TRescue(LifecycleNode):
                     # In future add handling for multiple obstacles for avoidance
 
             if self.target_object is not None:
+                self.data = None
                 # stop spinning if target acquired
                 self.stop_moving()
                 if self.balls_found < 3:
@@ -321,7 +322,7 @@ class TRescue(LifecycleNode):
         elif self.current_state == States.TARGET_BALL:
             # Move towards ball using distance and angle estimation
 
-            bearing = self.target_object[3]
+            bearing = self.target_object[3] - 5
             distance = self.target_object[2] - 0.05
 
             if not self.state_started:

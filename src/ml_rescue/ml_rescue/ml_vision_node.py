@@ -135,6 +135,7 @@ class VisionNode(Node):
         # Sets a filter for either balls or evacuation points, depending on what is requested
         if request.message == 'ball':
             mode = 1
+            self.get_logger().info('A ball has been requested')
         elif request.message == 'evacpoint':
             mode = 2
         else:
