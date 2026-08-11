@@ -101,6 +101,7 @@ class TRescue(LifecycleNode):
         self.servo_available_time = 0
         self.servo_timeout = 0
         self.target_timestamp = 0
+        self.move_distance = 0
 
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().info('Configuring ml_rescue node...')
@@ -164,6 +165,7 @@ class TRescue(LifecycleNode):
         self.servo_available_time = 0
         self.servo_timeout = 0
         self.target_timestamp = 0
+        self.move_distance = 0
 
         if self.timer:
             self.timer.reset()
@@ -284,7 +286,6 @@ class TRescue(LifecycleNode):
                 if self.balls_found == 3 and not self.inference_request_pending:
                     self.request_inference('evacpoint')
                     self.get_logger().info('Requesting point')
-
                 else:
                     self.request_inference('ball')
                 return
@@ -327,8 +328,8 @@ class TRescue(LifecycleNode):
         elif self.current_state == States.TARGET_BALL:
             # Move towards ball using distance and angle estimation
 
-            bearing = self.target_object[3] - 5
-            distance = self.target_object[2] - 0.05
+            bearing = self.target_object[3]
+            distance = self.target_object[2]
 
             if not self.state_started:
                 self.get_logger().info('Targeting a ball...')
@@ -347,18 +348,40 @@ class TRescue(LifecycleNode):
                 self.sub_state = 2
 
             elif self.sub_state == 2 and not self.robot.busy:
-                self.get_logger().info('Robot is facing ball')
+                self.get_logger().info('Double checking angle...')
 
-                self.robot.drive(distance)
+                self.request_inference('ball')
+
                 self.sub_state = 3
 
-            elif self.sub_state == 3 and not self.robot.busy:
-                # TODO: Add a check to make sure ball is in correct spot before picking up
+            elif self.sub_state == 3 and not self.inference_returned:
+                return
 
+            elif self.sub_state == 3 and not self.inference_request_pending:
+                if self.data is not None:
+                    current_data = self.data
+                    self.data = None
+
+                    target_ball = current_data[0]
+
+                    check_bearing = target_ball[3]
+                    check_distance = target_ball[2]
+
+                    self.move_distance = (distance + check_distance) / 2
+
+                    self.robot.drive(0, check_bearing)
+                else:
+                    self.get_logger().warn('ERROR: BALL HAS BEEN LOST')
+
+            elif self.sub_state == 4 and not self.robot.busy:
+                self.robot.drive(self.move_distance - 0.05)
+                self.sub_state = 5
+
+            elif self.sub_state == 5 and not self.robot.busy:
                 self.lift('down')
-                self.sub_state = 4
+                self.sub_state = 6
 
-            elif self.sub_state == 4 and not self.servo_busy and now >= self.servo_available_time:
+            elif self.sub_state == 6 and not self.servo_busy and now >= self.servo_available_time:
                 self.get_logger().info('Robot is at ball')
 
                 self.transition_to_state(States.GRAB_BALL)
