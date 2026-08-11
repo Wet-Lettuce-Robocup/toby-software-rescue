@@ -18,7 +18,7 @@ from rescue_msgs.srv import EnableInference, InferenceDetections, SetRescueState
 from robot_msgs.action import MoveTime
 from robot_msgs.srv import Inference as SendInference
 from robot_msgs.srv import ServoCommand
-from std_msgs.msg import Bool, Float32, Int32
+from std_msgs.msg import Bool, Int32
 
 
 class States(Enum):
@@ -710,6 +710,7 @@ class TRescue(LifecycleNode):
         self.servo_request('gate_pub', angle)
 
     def servo_request(self, servo, angle):
+        self.get_logger().info(f'Servo {servo} requested')
         self.servo_busy = True
 
         request = ServoCommand.Request()
@@ -723,6 +724,9 @@ class TRescue(LifecycleNode):
     def servo_callback(self, future):
         try:
             response = future.result()
+            self.get_logger().info(
+                f'Servo call result: {response.message}, success = {response.success}'
+            )
 
             if response.success:
                 self.servo_busy = False
