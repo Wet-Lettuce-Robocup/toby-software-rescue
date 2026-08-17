@@ -370,8 +370,11 @@ class TRescue(LifecycleNode):
                     self.move_distance = (distance + check_distance) / 2
 
                     self.robot.drive(0, check_bearing)
+
+                    self.sub_state = 4
                 else:
                     self.get_logger().warn('ERROR: BALL HAS BEEN LOST')
+                    self.transition_to_state(States.SCAN)
 
             elif self.sub_state == 4 and not self.robot.busy:
                 self.robot.drive(self.move_distance - 0.05)
@@ -768,7 +771,7 @@ class TRescue(LifecycleNode):
         self.servo_request('gate_pub', angle)
 
     def servo_request(self, servo, angle):
-        self.get_logger().info(f'Servo {servo} requested')
+        # self.get_logger().info(f'Servo {servo} requested')
         self.servo_busy = True
 
         request = ServoCommand.Request()
@@ -782,9 +785,9 @@ class TRescue(LifecycleNode):
     def servo_callback(self, future):
         try:
             response = future.result()
-            self.get_logger().info(
-                f'Servo call result: {response.message} success = {response.success}'
-            )
+            # self.get_logger().info(
+            #     f'Servo call result: {response.message} success = {response.success}'
+            # )
 
             if response.success:
                 self.servo_busy = False

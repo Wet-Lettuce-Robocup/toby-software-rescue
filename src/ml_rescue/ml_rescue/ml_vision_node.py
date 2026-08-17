@@ -137,7 +137,7 @@ class VisionNode(Node):
         # Sets a filter for either balls or evacuation points, depending on what is requested
         if request.message == 'ball':
             mode = 1
-            self.get_logger().info('A ball has been requested')
+            # self.get_logger().info('A ball has been requested')
         elif request.message == 'evacpoint':
             mode = 2
         else:
@@ -309,7 +309,7 @@ class VisionNode(Node):
         except queue.Empty:
             pass
 
-        self.get_logger().info('- - - Sending detections - - -')
+        # self.get_logger().info('- - - Sending detections - - -')
         if detection_msg is not None and detection_msg.detections:
             response.success = True
             response.detections = detection_msg
