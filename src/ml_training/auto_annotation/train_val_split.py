@@ -6,7 +6,7 @@ IMAGE_DIR = Path('images')
 LABEL_DIR = Path('labels')
 
 TRAIN_RATIO = 0.8
-RANDOM_SEED = 42
+RANDOM_SEED = 40
 
 IMAGE_EXTENSIONS = {
     '.jpg',

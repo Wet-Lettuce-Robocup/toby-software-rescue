@@ -97,8 +97,9 @@ class ImageToModel:
     def crop_frame(self, frame):
         height, width = frame.shape[:2]
 
+        bottom_margin = int(height * 0.02)
         start_y = int(height / 3)
-        end_y = height
+        end_y = int(height - bottom_margin)
 
         side_margin = int(width * 0.05)
         start_x = side_margin

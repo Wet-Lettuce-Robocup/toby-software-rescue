@@ -113,7 +113,7 @@ class VisionNode(Node):
         return response
 
     def image_callback(self, msg):
-        """Updates self.latest_image with the latest camera frame."""
+        """Stores the latest camera frame."""
         if not self.isActive:
             return
 
@@ -121,7 +121,7 @@ class VisionNode(Node):
         self.latest_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
 
     def inference_callback(self, request, response):
-        """Handles requests for either balls or evacuation points, and returns detections."""
+        """Runs inference on latest camera frame and returns detections."""
         # self.get_logger().info('Inference has been called.')
 
         if not self.isActive:

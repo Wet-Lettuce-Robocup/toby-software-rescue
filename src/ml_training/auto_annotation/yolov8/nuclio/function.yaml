@@ -7,7 +7,8 @@ metadata:
     framework: pytorch
     spec: |
       [
-        { "id": 0, "name": "ball" }
+        { "id": 0, "name": "black" },
+        { "id": 1, "name": "silver" },
       ]
 spec:
   description: custom-model-yolov8

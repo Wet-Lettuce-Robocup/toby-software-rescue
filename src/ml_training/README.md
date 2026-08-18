@@ -4,12 +4,13 @@ I hosted it locally on my laptop using Docker.
 
 When using CVAT, you can automatically annotate images using a ml (machine learning) model. How I did this:
 
-In the directory cvat/serverless, paste the shell script and 'yolov8' directory, then run:
+In the directory cvat/serverless, paste the shell script and 'yolov8' directory, then navigate to `cvat/` and run:
 
  `docker compose -f docker-compose.yml -f components/serverless/docker-compose.serverless.yml up -d`
+ this first option seemed to have worked, idk which one is better
 ` docker compose -f docker-compose.yml -f components/serverless/docker-compose.serverless.yml -f docker-compose.override.yml up -d`
 
-
+Then run:
 `./serverless/deploy_cpu.sh serverless/yolov8/nuclio`
 
 If it works, the model should appear in the 'models' tab of CVAT. To make it work on mac, I had do the following:
