@@ -10,12 +10,24 @@ In the directory cvat/serverless, paste the shell script and 'yolov8' directory,
  this first option seemed to have worked, idk which one is better
 ` docker compose -f docker-compose.yml -f components/serverless/docker-compose.serverless.yml -f docker-compose.override.yml up -d`
 
-Then run:
+Setup is now done.
+
+Run:
 `./serverless/deploy_cpu.sh serverless/yolov8/nuclio`
 
 If it works, the model should appear in the 'models' tab of CVAT. To make it work on mac, I had do the following:
 `brew install bash`
 `brew install coreutils`
+
+If the build fails:
+```zsh
+docker run -d \
+  --name nuclio-dashboard \
+  -p 8070:8070 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  quay.io/nuclio/dashboard:stable-amd64
+  ```
+  and go to localhost:8070 and delete the build.
 
 After annotation is done, export to YOLO1.1.
 Extract zip and delete obj.data and obj.names

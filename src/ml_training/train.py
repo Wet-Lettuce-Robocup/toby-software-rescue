@@ -12,5 +12,5 @@ model = YOLO('yolov8n.yaml')  # n for nano, s for small, anything larger would b
 
 path = os.path.join(os.getcwd(), 'src/ml_training/conf.yaml')
 model.train(
-    data=path, epochs=250, patience=40, device='mps', imgsz=640, batch=10, augment=True
+    data=path, epochs=250, patience=40, device='mps', imgsz=640, batch=10
 )  # Sets training to run on an Apple GPU

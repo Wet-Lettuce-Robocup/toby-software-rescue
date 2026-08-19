@@ -50,5 +50,5 @@ class PredictionClass:
 
 if __name__ == '__main__':
     pred = PredictionClass()
-    # pred.predict_image('test.jpg')
-    pred.predict_pi_video_stream()
+    pred.predict_image('test.jpg')
+    # pred.predict_pi_video_stream()

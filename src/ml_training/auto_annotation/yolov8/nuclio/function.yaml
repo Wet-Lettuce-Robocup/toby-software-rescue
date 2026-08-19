@@ -8,7 +8,7 @@ metadata:
     spec: |
       [
         { "id": 0, "name": "black" },
-        { "id": 1, "name": "silver" },
+        { "id": 1, "name": "silver" }
       ]
 spec:
   description: custom-model-yolov8
@@ -22,10 +22,6 @@ spec:
       preCopy:
         - kind: ENV
           value: DEBIAN_FRONTEND=noninteractive
-        - kind: ENV
-          value: PIP_CACHE_DIR=/opt/nuclio/.pip-cache
-        - kind: RUN
-          value: mkdir -p /opt/nuclio/.pip-cache
         - kind: RUN
           value: |-
             apt-get update \
@@ -43,7 +39,8 @@ spec:
             && rm -rf /var/lib/apt/lists/*
         - kind: RUN
           value: |-
-            pip install --cache-dir=/opt/nuclio/.pip-cache \
+            --mount=type=cache,target=/root/.cache/pip \
+            pip install \
               ultralytics opencv-python numpy
         - kind: WORKDIR
           value: /opt/nuclio
