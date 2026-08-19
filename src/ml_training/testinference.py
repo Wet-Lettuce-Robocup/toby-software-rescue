@@ -13,7 +13,7 @@ class PredictionClass:
     """
 
     def __init__(self):
-        self.model = YOLO('model/best.pt')  # Loads custom model from training
+        self.model = YOLO('model/state.pt')  # Loads custom model from training
         self.picam2 = None  # Placeholder
 
     def predict_image(self, image_path):
