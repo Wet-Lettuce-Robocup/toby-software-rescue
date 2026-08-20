@@ -18,23 +18,18 @@ END_NODES = [
 
 process_config_one = './src/nms_config_1_class.json'
 process_config_two = './src/nms_config_2_class.json'
+process_config_four = './src/nms_config_4_class.json'
 process_config_six = './src/nms_config_6_class.json'
 
 alls_script = (
     'normalization1 = normalization([0.0, 0.0, 0.0], [255.0, 255.0, 255.0])\n'
     'model_optimization_flavor(optimization_level=2, compression_level=1)\n'
-    f'nms_postprocess("{process_config_two}", meta_arch=yolov8, engine=nn_core)\n'
+    f'nms_postprocess("{process_config_four}", meta_arch=yolov8, engine=nn_core)\n'
     'performance_param(compiler_optimization_level=max)\n'
 )
 
 
-def parse_onnx(
-    onnx_path: str,
-    calib_folder: str,
-    net_name: str,
-    hw_arch: str,
-    target_size: tuple[int, int] = (640, 640),
-):
+def parse_onnx(onnx_path: str, net_name: str, hw_arch: str, har_file: str):
     # -------------------------------
     # Step 1. Load the ONNX model and test outputs
     # -------------------------------
@@ -62,10 +57,19 @@ def parse_onnx(
     )
     print('Model translation to Hailo format completed.')
 
-    har_file = f'./models/{net_name}_raw.har'
     runner.save_har(har_file)
     print(f'Raw HAR file saved to: {har_file}')
 
+
+def calibrate(
+    raw_har: str,
+    q_har: str,
+    calib_folder: str,
+    hw_arch: str,
+    target_size: tuple[int, int] = (640, 640),
+):
+
+    runner = ClientRunner(hw_arch=hw_arch, har=raw_har)
     runner.load_model_script(alls_script)
 
     # -----------------------------------------------------
@@ -74,6 +78,7 @@ def parse_onnx(
     # For quantization, you need a calibration dataset.
     # Adjust the shape (batch, height, width, channels) as required by your model.
     # For many YOLO models the expected input is 640x640 with 3 channels.
+
     calib_dataset = load_calibration_dataset(calib_folder, target_size)
     print('Calibration dataset created.')
 
@@ -82,15 +87,17 @@ def parse_onnx(
     runner.optimize(calib_dataset)
     print('Model quantization complete.')
 
-    har_file_q = f'./models/{net_name}_quantised.har'
-    runner.save_har(har_file_q)
-    print(f'Raw HAR file saved to: {har_file_q}')
+    runner.save_har(q_har)
+    print(f'Raw HAR file saved to: {q_har}')
 
+
+def compile(net_name: str, hw_arch: str, har: str, output_hef_path: str):
     # -----------------------------------------------------
     # Step 4. Compile the quantized model into a HAR file for deployment
     # -----------------------------------------------------
+    runner = ClientRunner(hw_arch=hw_arch, har=har)
+
     hef = runner.compile()
-    output_hef_path = f'./models/{net_name}.hef'
     with open(output_hef_path, 'wb') as f:
         f.write(hef)
 
@@ -126,7 +133,7 @@ def load_calibration_dataset(
     for img_file in sorted(image_files):
         img = Image.open(img_file).convert('RGB')
         # Resize using bilinear interpolation
-        img = img.resize(target_size, resample=Image.BILINEAR)  # does this work
+        img = img.resize(target_size, resample=Image.Resampling.BILINEAR)  # does this work
         img_np = np.array(img).astype(np.float32)
         images.append(img_np)
 
@@ -135,22 +142,19 @@ def load_calibration_dataset(
     return calib_dataset
 
 
-def only_compile(net_name, hw_arch, har):
-    runner = ClientRunner(hw_arch=hw_arch, har=har)
-
-    hef = runner.compile()
-    output_hef_path = f'./models/{net_name}.hef'
-    with open(output_hef_path, 'wb') as f:
-        f.write(hef)
-
-
 def main():
-    onnx_path = './models/best.onnx'
+    model_path = './models'
+    onnx_path = f'{model_path}/state.onnx'
     calib_folder = './calibration_images'
-    net_name = 'robotyolov8s'
+    net_name = 'state_yolov8n'
     hw_arch = 'hailo10h'
-    # only_compile(net_name=net_name, hw_arch=hw_arch, har='./models/robotyolov8s_quantised.har')
-    parse_onnx(onnx_path, calib_folder, net_name, hw_arch)
+    har_1 = f'{model_path}/{net_name}_raw.har'
+    har_2 = f'{model_path}/{net_name}_quantised.har'
+    output_hef_path = f'{model_path}/{net_name}.hef'
+
+    parse_onnx(onnx_path, net_name, hw_arch, har_1)
+    calibrate(har_1, har_2, calib_folder, hw_arch)
+    compile(net_name, hw_arch, har_2, output_hef_path)
 
 
 if __name__ == '__main__':
