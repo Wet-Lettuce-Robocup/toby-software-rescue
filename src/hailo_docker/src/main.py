@@ -124,7 +124,7 @@ def load_calibration_dataset(
     image_files = [
         os.path.join(calib_folder, f)
         for f in os.listdir(calib_folder)
-        if f.lower().endswith(('.jpg', '.png', '.jpeg'))
+        if f.lower().endswith(('.jpg', '.png', '.jpeg')) and not f.lower().startswith('._')
     ]
     if not image_files:
         raise ValueError('No calibration images found in the folder.')
