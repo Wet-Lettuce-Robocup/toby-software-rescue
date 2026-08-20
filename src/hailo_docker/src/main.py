@@ -152,9 +152,14 @@ def main():
     har_2 = f'{model_path}/{net_name}_quantised.har'
     output_hef_path = f'{model_path}/{net_name}.hef'
 
-    parse_onnx(onnx_path, net_name, hw_arch, har_1)
-    calibrate(har_1, har_2, calib_folder, hw_arch)
-    compile(net_name, hw_arch, har_2, output_hef_path)
+    if not os.path.exists('har_1'):
+        parse_onnx(onnx_path, net_name, hw_arch, har_1)
+    if not os.path.exists('har_2'):
+        calibrate(har_1, har_2, calib_folder, hw_arch)
+    if os.path.exists('har_1') and os.path.exists('har_2'):
+        compile(net_name, hw_arch, har_2, output_hef_path)
+    else:
+        print('Files failed to generate')
 
 
 if __name__ == '__main__':
