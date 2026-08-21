@@ -345,7 +345,10 @@ class TRescue(LifecycleNode):
                 and now >= self.servo_available_time
             ):
                 self.robot.drive(0, bearing)  # need to test and see how far robot turns
-                self.sub_state = 2
+                self.sub_state = 1.5
+
+            elif not self.robot.busy and self.sub_state == 1.5:
+                self.robot.drive(distance / 2)
 
             elif self.sub_state == 2 and not self.robot.busy:
                 self.get_logger().info('Double checking angle...')
@@ -367,7 +370,7 @@ class TRescue(LifecycleNode):
                     check_bearing = target_ball[3]
                     check_distance = target_ball[2]
 
-                    self.move_distance = (distance + check_distance) / 2
+                    self.move_distance = check_distance
 
                     self.robot.drive(0, check_bearing)
 

@@ -1,5 +1,6 @@
 import ultralytics
 from ultralytics import YOLO
+import cv2
 
 print(f'Ultralytics version: {ultralytics.__version__}')
 
@@ -18,11 +19,13 @@ class PredictionClass:
 
     def predict_image(self, image_path):
         results = self.model(image_path)  # Runs inference on test image
-        results[0].show()  # Displays model-annotated image
+        annotations = results[0].plot()  # Displays model-annotated image
+        cv2.imshow('box', annotations)
+        if cv2.waitKey(0):
+            cv2.destroyAllWindows()
 
     def predict_pi_video_stream(self, frames=100):
         if not self.picam2:
-            import cv2
             from libcamera import Transform
             from picamera2 import Picamera2
 
@@ -50,5 +53,5 @@ class PredictionClass:
 
 if __name__ == '__main__':
     pred = PredictionClass()
-    pred.predict_image('test.jpg')
+    pred.predict_image('test.png')
     # pred.predict_pi_video_stream()

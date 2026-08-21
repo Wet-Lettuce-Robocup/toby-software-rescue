@@ -61,13 +61,13 @@ class VisionNode(Node):
         self.latest_image = None
         self.latest_image_header = None
 
-        self.hailo = 'robotyolov8s'  # Model filename
+        self.hailo = 'state_yolov8n'  # Model filename
         self.hef_path = os.path.join(
             get_package_share_directory('ml_rescue'), 'modelhef', f'{self.hailo}.hef'
         )
         self.imgsz = 640
         self.conf_threshold = 0.7
-        self.model_classes = ['black', 'silver']
+        self.model_classes = ['silver', 'black', 'green', 'red']
 
         self.results_queue = queue.Queue(maxsize=2)
 
@@ -145,34 +145,6 @@ class VisionNode(Node):
             response.success = False
             return response
 
-        if mode == 2:
-            detection_msg = Detection2DArray()
-
-            detection = Detection2D()
-            detection.header = detection_msg.header
-
-            detection.bbox.center.position.x = 768
-            detection.bbox.center.position.y = 432
-            detection.bbox.size_x = float(2)
-            detection.bbox.size_y = float(410)
-
-            hypothesis = ObjectHypothesisWithPose()
-
-            if self.counts == 0:
-                hypothesis.hypothesis.class_id = 'green'
-                self.counts += 1
-            elif self.counts == 1:
-                hypothesis.hypothesis.class_id = 'red'
-            else:
-                self.get_logger().info('bypass failed loll')
-
-            detection.results.append(hypothesis)
-            detection_msg.detections.append(detection)
-
-            response.success = True
-            response.detections = detection_msg
-            return response
-
         # start_time = time.time()
 
         # Creates a copy of latest image so that latest_image can asynchronously update
@@ -211,7 +183,7 @@ class VisionNode(Node):
         job.wait(1000)
 
         try:
-            vis_frame, latest_balls = self.results_queue.get_nowait()
+            vis_frame, latest_objects = self.results_queue.get_nowait()
 
             # self.get_logger().info(f'balls: {latest_balls}')
 
@@ -220,10 +192,10 @@ class VisionNode(Node):
             detection_msg.header.stamp = image_header.stamp
             detection_msg.header.frame_id = image_header.frame_id
 
-            for ball in latest_balls:
-                y1, x1, y2, x2 = ball['box']
-                score = ball['score']
-                material = ball['class_name']
+            for object in latest_objects:
+                y1, x1, y2, x2 = object['box']
+                score = object['score']
+                material = object['class_name']
 
                 self.get_logger().info(f'{material} detected')
 

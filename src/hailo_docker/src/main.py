@@ -58,7 +58,7 @@ def parse_onnx(onnx_path: str, net_name: str, hw_arch: str, har_file: str):
     print('Model translation to Hailo format completed.')
 
     runner.save_har(har_file)
-    print(f'Raw HAR file saved to: {har_file}')
+    # print(f'Raw HAR file saved to: {har_file}')
 
 
 def calibrate(
@@ -88,13 +88,14 @@ def calibrate(
     print('Model quantization complete.')
 
     runner.save_har(q_har)
-    print(f'Raw HAR file saved to: {q_har}')
+    # print(f'Raw HAR file saved to: {q_har}')
 
 
 def compile(net_name: str, hw_arch: str, har: str, output_hef_path: str):
     # -----------------------------------------------------
     # Step 4. Compile the quantized model into a HAR file for deployment
     # -----------------------------------------------------
+    print('starting compiling')
     runner = ClientRunner(hw_arch=hw_arch, har=har)
 
     hef = runner.compile()
@@ -152,11 +153,11 @@ def main():
     har_2 = f'{model_path}/{net_name}_quantised.har'
     output_hef_path = f'{model_path}/{net_name}.hef'
 
-    if not os.path.exists('har_1'):
+    if not os.path.exists(har_1):
         parse_onnx(onnx_path, net_name, hw_arch, har_1)
-    if not os.path.exists('har_2'):
+    if not os.path.exists(har_2):
         calibrate(har_1, har_2, calib_folder, hw_arch)
-    if os.path.exists('har_1') and os.path.exists('har_2'):
+    if os.path.exists(har_1) and os.path.exists(har_2):
         compile(net_name, hw_arch, har_2, output_hef_path)
     else:
         print('Files failed to generate')

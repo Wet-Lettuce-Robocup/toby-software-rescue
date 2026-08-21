@@ -13,7 +13,7 @@ class RobotRescueCam:
     """A class for testing asynchronous camera inference."""
 
     def __init__(self):
-        self.hailo_model = 'robotyolov8s'
+        self.hailo_model = 'state_yolov8n'
         self.hailo_model_path = f'config/{self.hailo_model}.hef'
         self.imgsz = 640
         self.conf_threshold = 0.5
