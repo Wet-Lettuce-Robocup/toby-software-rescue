@@ -349,6 +349,7 @@ class TRescue(LifecycleNode):
 
             elif not self.robot.busy and self.sub_state == 1.5:
                 self.robot.drive(distance / 2)
+                self.sub_state = 2
 
             elif self.sub_state == 2 and not self.robot.busy:
                 self.get_logger().info('Double checking angle...')

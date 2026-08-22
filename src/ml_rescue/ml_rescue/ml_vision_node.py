@@ -59,6 +59,7 @@ class VisionNode(Node):
         self.counts = 0
 
         self.latest_image = None
+        self.latest_cropped_image = None
         self.latest_image_header = None
 
         self.hailo = 'state_yolov8n'  # Model filename
@@ -66,7 +67,7 @@ class VisionNode(Node):
             get_package_share_directory('ml_rescue'), 'modelhef', f'{self.hailo}.hef'
         )
         self.imgsz = 640
-        self.conf_threshold = 0.7
+        self.conf_threshold = 0.8
         self.model_classes = ['silver', 'black', 'green', 'red']
 
         self.results_queue = queue.Queue(maxsize=2)
@@ -89,6 +90,9 @@ class VisionNode(Node):
         # Frame size
         self.dw = 1536
         self.dh = 864
+
+        self.cdw = 1384
+        self.cdh = 559
 
         # Video writer setup for debugging
         pipeline = (
@@ -117,8 +121,24 @@ class VisionNode(Node):
         if not self.isActive:
             return
 
+        frame = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
+
         self.latest_image_header = msg.header
-        self.latest_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
+        self.latest_image = frame
+
+        # Cropping for better performance maybe
+
+        height, width = frame.shape[:2]
+
+        bottom_margin = int(height * 0.02)
+        start_y = int(height / 3)
+        end_y = int(height - bottom_margin)
+
+        side_margin = int(width * 0.05)
+        start_x = side_margin
+        end_x = width - side_margin
+
+        self.latest_cropped_image = frame[start_y:end_y, start_x:end_x]
 
     def inference_callback(self, request, response):
         """Runs inference on latest camera frame and returns detections."""
@@ -149,7 +169,7 @@ class VisionNode(Node):
 
         # Creates a copy of latest image so that latest_image can asynchronously update
         image_header = self.latest_image_header
-        raw_frame = self.latest_image.copy()
+        raw_frame = self.latest_cropped_image.copy()
         detection_msg = None
 
         # self.out.write(raw_frame)
@@ -276,6 +296,8 @@ class VisionNode(Node):
 
             # Render frame to video
             if self.debug:
+                cv2.imshow('a', vis_frame)
+                cv2.waitKey(1)
                 self.out.write(vis_frame)
 
         except queue.Empty:
