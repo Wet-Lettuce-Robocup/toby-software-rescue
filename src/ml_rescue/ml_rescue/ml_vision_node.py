@@ -166,12 +166,12 @@ class VisionNode(Node):
                 # self.out.write(annotated_frame)
 
             for x1, y1, x2, y2, conf, cls in i.boxes.data.tolist():
-                self.get_logger().info(str(i.boxes))
+                # self.get_logger().info(str(i.boxes))
 
                 x1, y1, x2, y2 = self.crop_box_to_frame(x1, y1, x2, y2)
 
                 class_name = self.model.names[int(cls)]
-                self.get_logger().info(f'{cls} detected')
+                self.get_logger().info(f'{class_name} detected')
 
                 data = {'cls': class_name, 'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'conf': conf}
 
@@ -181,7 +181,7 @@ class VisionNode(Node):
 
         all_data = {'header': image_header, 'detections': all_detections, 'counts': counts}
 
-        self.get_logger().info(str(all_data))
+        # self.get_logger().info(str(all_data))
         self.current_data = all_data
 
     def inference_callback(self, request, response):
