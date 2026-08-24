@@ -45,6 +45,7 @@ class TRescue(LifecycleNode):
     dh = 864
     # self.f_length = 2.75
     ball_radius = 0.05  # m
+    evac_point_height = 0.06
     fx = 683.31285  # (self.dw * self.f_length) / 6.54
     fy = 683.10689  # (self.dh * self.f_length) / 3.63
     cx = 764.89803
@@ -388,7 +389,8 @@ class TRescue(LifecycleNode):
                     self.sub_state = 4
                 else:
                     self.get_logger().warn('ERROR: BALL HAS BEEN LOST')
-                    self.transition_to_state(States.SCAN)
+                    self.robot.drive(-0.05)
+                    self.sub_state = 7
 
             elif self.sub_state == 4 and not self.robot.busy:
                 self.robot.drive(self.move_distance - 0.05)
@@ -402,6 +404,9 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Robot is at ball')
 
                 self.transition_to_state(States.GRAB_BALL)
+
+            elif self.sub_state == 7 and not self.robot.busy:
+                self.transition_to_state(States.SCAN)
 
         elif self.current_state == States.GRAB_BALL:
             # Pick up ball
@@ -633,15 +638,14 @@ class TRescue(LifecycleNode):
 
             centre_x = detection.bbox.center.position.x
             # centre_y = detection.bbox.center.position.y
-            width = detection.bbox.size_x
+            # width = detection.bbox.size_x
             height = detection.bbox.size_y
 
             if class_id in ['ball', 'silver', 'black']:
-                average_dimension = (width + height) / 2
-                distance = (self.fx * self.ball_radius) / average_dimension
+                distance = (self.fy * self.ball_radius) / height
 
             elif class_id in ['red', 'green']:
-                distance = (self.fy * 0.06) / height
+                distance = (self.fy * self.evac_point_height) / height
 
             else:
                 self.get_logger().warn(f'Class id is not valid: {class_id}')
@@ -866,8 +870,8 @@ class Movement:
 
     def drive(self, distance, angle=0, velocity=100):
         self.node.get_logger().info(f'Drive called with distance {distance} and angle {angle}')
-        distance *= 510
-        angle *= 2.1
+        distance *= 500
+        angle *= 1.2
         linear_time = abs(distance) / abs(velocity) if velocity != 0 and distance != 0 else 0.0
         angular_time = abs(angle) / abs(velocity) if velocity != 0 and angle != 0 else 0.0
         time_required = max(linear_time, angular_time)
