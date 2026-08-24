@@ -389,7 +389,7 @@ class TRescue(LifecycleNode):
                     self.sub_state = 4
                 else:
                     self.get_logger().warn('ERROR: BALL HAS BEEN LOST')
-                    self.robot.drive(-0.1)
+                    self.robot.drive(-0.1, -0.1)
                     self.sub_state = 7
 
             elif self.sub_state == 4 and not self.robot.busy:
@@ -438,8 +438,9 @@ class TRescue(LifecycleNode):
                     self.robot.drive(-0.1)
                 else:
                     self.get_logger().info('where is the ball')
+                    self.get_logger().info(f'distance reading: {self.claw_tof_dist}')
                     self.get_logger().info('assuming ball is not grabbed')
-                    self.robot.drive(-0.15, -10)
+                    self.robot.drive(-0.15, -0.1)
 
                 self.sub_state = 2
 
