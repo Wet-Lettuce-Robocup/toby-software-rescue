@@ -238,15 +238,12 @@ class TRescue(LifecycleNode):
                 and now >= self.servo_available_time
             ):
                 # Send drive command and wait for it to return without blocking state_loop
-                self.robot.drive(0.2)
+                dist = self.front_tof_dist
+                if dist > 0.2:
+                    self.robot.drive(dist / 2)
+                else:
+                    self.robot.drive(0.4)
                 self.sub_state = 4
-
-            # elif self.sub_state == 3:
-            #     if self.robot.busy:
-            #         return
-
-            #     self.robot.drive(0, 45)
-            #     self.sub_state = 4
 
             elif self.sub_state == 4 and not self.robot.busy:
                 self.get_logger().info('Entered rescue zone.')

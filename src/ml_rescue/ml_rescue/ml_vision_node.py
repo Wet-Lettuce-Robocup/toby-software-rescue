@@ -13,12 +13,12 @@ import rclpy
 from rclpy.node import Node
 from rescue_msgs.srv import EnableInference, InferenceDetections
 from sensor_msgs.msg import Image
+from ultralytics import YOLO
 from vision_msgs.msg import (
     Detection2D,
     Detection2DArray,
     ObjectHypothesisWithPose,
 )
-from ultralytics import YOLO
 
 
 class VisionNode(Node):
@@ -110,7 +110,7 @@ class VisionNode(Node):
         return response
 
     def image_callback(self, msg):
-        """Stores the latest camera frame."""
+        """Stores latest camera frame and applies a crop."""
         if not self.isActive:
             return
 
@@ -152,7 +152,9 @@ class VisionNode(Node):
         image_header = self.latest_image_header
         cropped_frame = self.latest_cropped_image.copy()
 
-        results = self.model.predict(cropped_frame, conf=self.conf, stream=True, imgsz=self.imgsz)
+        results = self.model.predict(
+            cropped_frame, conf=self.conf, stream=True, imgsz=self.imgsz, verbose=False
+        )
 
         all_detections = {}
 
@@ -185,8 +187,7 @@ class VisionNode(Node):
         self.current_data = all_data
 
     def inference_callback(self, request, response):
-        """Runs inference on latest camera frame and returns detections."""
-
+        """Run inference on latest camera frame and return detections."""
         if not self.isActive:
             self.get_logger().warn('Inference called but is not active.')
             response.success = False
@@ -225,27 +226,27 @@ class VisionNode(Node):
         if request.message == 'ball' and (
             all_data['counts']['silver'] > 0 or all_data['counts']['black'] > 0
         ):
-            filter = 'ball'
+            det_filter = 'ball'
         elif request.message == 'evacpoint' and (
             all_data['counts']['green'] > 0 or all_data['counts']['red'] > 0
         ):
-            filter = 'point'
+            det_filter = 'point'
         else:
             # Don't parse frames with no valid detections
             response.success = False
             return response
 
         for i in all_data['detections'].values():
-            if (filter == 'ball' and i['cls'] == 'silver') or (
-                filter == 'point' and i['cls'] == 'green'
+            if (det_filter == 'ball' and i['cls'] == 'silver') or (
+                det_filter == 'point' and i['cls'] == 'green'
             ):
                 detection = self.parse_datapoint(i, detection_msg)
                 detection_msg.detections.append(detection)  # To be sent to ml_rescue_node
 
         # Separate for loop to ensure that silver and green have priority
         for i in all_data['detections'].values():
-            if (filter == 'ball' and i['cls'] == 'black') or (
-                filter == 'point' and i['cls'] == 'red'
+            if (det_filter == 'ball' and i['cls'] == 'black') or (
+                det_filter == 'point' and i['cls'] == 'red'
             ):
                 detection = self.parse_datapoint(i, detection_msg)
                 detection_msg.detections.append(detection)  # To be sent to ml_rescue_node
