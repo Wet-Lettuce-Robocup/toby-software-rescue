@@ -269,6 +269,17 @@ class TRescue(LifecycleNode):
                     self.start_moving(0, 0.02)
                     return
 
+            wall_dist = self.front_tof_dist
+            if wall_dist > 0.01 and wall_dist < 0.1:
+                self.robot.drive(-0.1)
+                self.sub_state = 1
+
+            if self.sub_state == 1:
+                if self.robot.busy:
+                    return
+                else:
+                    self.sub_state = 0
+
             if not self.inference_returned:
                 # Wait for inference data without blocking state_loop
                 return
