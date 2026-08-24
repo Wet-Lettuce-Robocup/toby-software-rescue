@@ -270,9 +270,10 @@ class TRescue(LifecycleNode):
                     return
 
             wall_dist = self.front_tof_dist
-            if wall_dist > 0.01 and wall_dist < 0.1:
+            if wall_dist > 0.01 and wall_dist < 0.1 and self.sub_state == 0:
                 self.robot.drive(-0.1)
                 self.sub_state = 1
+                return
 
             if self.sub_state == 1:
                 if self.robot.busy:
