@@ -173,7 +173,7 @@ class VisionNode(Node):
                 x1, y1, x2, y2 = self.crop_box_to_frame(x1, y1, x2, y2)
 
                 class_name = self.model.names[int(cls)]
-                self.get_logger().info(f'{class_name} detected')
+                # self.get_logger().info(f'{class_name} detected')
 
                 data = {'cls': class_name, 'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'conf': conf}
 

@@ -239,7 +239,7 @@ class TRescue(LifecycleNode):
             ):
                 # Send drive command and wait for it to return without blocking state_loop
                 dist = self.front_tof_dist
-                if dist > 0.2:
+                if dist > 0.2 and dist < 1:
                     self.robot.drive(dist / 2)
                 else:
                     self.robot.drive(0.4)
