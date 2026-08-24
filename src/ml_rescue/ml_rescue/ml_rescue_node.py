@@ -279,6 +279,7 @@ class TRescue(LifecycleNode):
                 if self.robot.busy:
                     return
                 else:
+                    self.start_moving(0, 0.02)
                     self.sub_state = 0
 
             if not self.inference_returned:
