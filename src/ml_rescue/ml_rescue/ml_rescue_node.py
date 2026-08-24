@@ -384,7 +384,7 @@ class TRescue(LifecycleNode):
 
                     self.move_distance = check_distance
 
-                    self.robot.drive(0, check_bearing - 20)
+                    self.robot.drive(0, check_bearing - 0.2, 60)
 
                     self.sub_state = 4
                 else:
