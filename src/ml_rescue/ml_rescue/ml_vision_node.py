@@ -165,7 +165,7 @@ class VisionNode(Node):
                 annotated_frame = i.plot()
                 cv2.imshow('a', annotated_frame)
                 cv2.waitKey(1)
-                # self.out.write(annotated_frame)
+                self.out.write(annotated_frame)
 
             for x1, y1, x2, y2, conf, cls in i.boxes.data.tolist():
                 # self.get_logger().info(str(i.boxes))

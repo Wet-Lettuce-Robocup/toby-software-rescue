@@ -359,7 +359,7 @@ class TRescue(LifecycleNode):
                 self.sub_state = 1.5
 
             elif not self.robot.busy and self.sub_state == 1.5:
-                self.robot.drive(distance / 2)
+                self.robot.drive(distance / 4)
                 self.sub_state = 2
 
             elif self.sub_state == 2 and not self.robot.busy:
@@ -384,16 +384,16 @@ class TRescue(LifecycleNode):
 
                     self.move_distance = check_distance
 
-                    self.robot.drive(0, check_bearing)
+                    self.robot.drive(0, check_bearing - 20)
 
                     self.sub_state = 4
                 else:
                     self.get_logger().warn('ERROR: BALL HAS BEEN LOST')
-                    self.robot.drive(-0.05)
+                    self.robot.drive(-0.1)
                     self.sub_state = 7
 
             elif self.sub_state == 4 and not self.robot.busy:
-                self.robot.drive(self.move_distance - 0.05)
+                self.robot.drive(self.move_distance - 0.1)
                 self.sub_state = 5
 
             elif self.sub_state == 5 and not self.robot.busy:
@@ -414,7 +414,7 @@ class TRescue(LifecycleNode):
                 self.get_logger().info('Grabbing ball...')
                 self.state_started = True
 
-                self.robot.drive(0.1, velocity=50)
+                self.robot.drive(0.15, velocity=50)
 
                 self.sub_state = 0
 
@@ -439,6 +439,7 @@ class TRescue(LifecycleNode):
                 else:
                     self.get_logger().info('where is the ball')
                     self.get_logger().info('assuming ball is not grabbed')
+                    self.robot.drive(-0.15, -10)
 
                 self.sub_state = 2
 
@@ -449,7 +450,7 @@ class TRescue(LifecycleNode):
             elif self.sub_state == 3 and not self.servo_busy and now >= self.servo_available_time:
                 # TODO: Add a check to make sure ball is actually picked up (limit switch)
 
-                self.target_timestamp = now + rclpy.duration.Duration(seconds=3.0)
+                self.target_timestamp = now + rclpy.duration.Duration(seconds=2.0)
                 self.sub_state = 4
 
             elif now >= self.target_timestamp and self.sub_state == 4:
