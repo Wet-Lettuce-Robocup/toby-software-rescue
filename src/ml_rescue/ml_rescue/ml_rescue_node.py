@@ -429,18 +429,18 @@ class TRescue(LifecycleNode):
                 and not self.servo_busy
                 and now >= self.servo_available_time
             ):
-                if self.claw_tof_dist < 0.05 and self.claw_tof_dist > 0:
-                    self.get_logger().info('ball is probably in the claw')
+                # if self.claw_tof_dist < 0.05 and self.claw_tof_dist > 0:
+                self.get_logger().info('ball is probably in the claw')
 
-                    self.balls_found += 1
+                self.balls_found += 1
 
-                    self.get_logger().info('Reversing...')
-                    self.robot.drive(-0.1)
-                else:
-                    self.get_logger().info('where is the ball')
-                    self.get_logger().info(f'distance reading: {self.claw_tof_dist}')
-                    self.get_logger().info('assuming ball is not grabbed')
-                    self.robot.drive(-0.15, -0.1)
+                self.get_logger().info('Reversing...')
+                self.robot.drive(-0.15)
+                # else:
+                #     self.get_logger().info('where is the ball')
+                #     self.get_logger().info(f'distance reading: {self.claw_tof_dist}')
+                #     self.get_logger().info('assuming ball is not grabbed')
+                #     self.robot.drive(-0.15, -0.1)
 
                 self.sub_state = 2
 
