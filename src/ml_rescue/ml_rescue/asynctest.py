@@ -3,7 +3,14 @@ import queue
 import time
 
 import cv2
-from hailo_platform import VDevice
+
+try:
+    from hailo_platform import VDevice
+except ImportError:
+    from unittest.mock import MagicMock
+
+    VDevice = MagicMock()
+
 from libcamera import Transform
 import numpy as np
 from picamera2 import Picamera2

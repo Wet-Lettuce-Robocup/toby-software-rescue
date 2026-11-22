@@ -1,14 +1,20 @@
 from functools import partial
 import os
 import queue
+
 # import time
 # import subprocess
-
-
 from ament_index_python.packages import get_package_share_directory
 import cv2
 from cv_bridge import CvBridge
-from hailo_platform import VDevice
+
+try:
+    from hailo_platform import VDevice
+except ImportError:
+    from unittest.mock import MagicMock
+
+    VDevice = MagicMock()
+
 import numpy as np
 import rclpy
 from rclpy.node import Node
