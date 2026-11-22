@@ -45,6 +45,7 @@ class TRescue(LifecycleNode):
     dh = 864
     # self.f_length = 2.75
     ball_radius = 0.05  # m
+    evac_point_height = 0.06
     fx = 683.31285  # (self.dw * self.f_length) / 6.54
     fy = 683.10689  # (self.dh * self.f_length) / 3.63
     cx = 764.89803
@@ -238,15 +239,12 @@ class TRescue(LifecycleNode):
                 and now >= self.servo_available_time
             ):
                 # Send drive command and wait for it to return without blocking state_loop
-                self.robot.drive(0.2)
+                dist = self.front_tof_dist
+                if dist > 0.2 and dist < 1:
+                    self.robot.drive(dist / 2)
+                else:
+                    self.robot.drive(0.4)
                 self.sub_state = 4
-
-            # elif self.sub_state == 3:
-            #     if self.robot.busy:
-            #         return
-
-            #     self.robot.drive(0, 45)
-            #     self.sub_state = 4
 
             elif self.sub_state == 4 and not self.robot.busy:
                 self.get_logger().info('Entered rescue zone.')
@@ -271,6 +269,19 @@ class TRescue(LifecycleNode):
                     # Spin robot a little bit to seek out more balls
                     self.start_moving(0, 0.02)
                     return
+
+            wall_dist = self.front_tof_dist
+            if wall_dist > 0.01 and wall_dist < 0.1 and self.sub_state == 0:
+                self.robot.drive(-0.1)
+                self.sub_state = 1
+                return
+
+            if self.sub_state == 1:
+                if self.robot.busy:
+                    return
+                else:
+                    self.start_moving(0, 0.02)
+                    self.sub_state = 0
 
             if not self.inference_returned:
                 # Wait for inference data without blocking state_loop
@@ -348,7 +359,7 @@ class TRescue(LifecycleNode):
                 self.sub_state = 1.5
 
             elif not self.robot.busy and self.sub_state == 1.5:
-                self.robot.drive(distance / 2)
+                self.robot.drive(distance / 4)
                 self.sub_state = 2
 
             elif self.sub_state == 2 and not self.robot.busy:
@@ -373,15 +384,16 @@ class TRescue(LifecycleNode):
 
                     self.move_distance = check_distance
 
-                    self.robot.drive(0, check_bearing)
+                    self.robot.drive(0, check_bearing - 0.2, 60)
 
                     self.sub_state = 4
                 else:
                     self.get_logger().warn('ERROR: BALL HAS BEEN LOST')
-                    self.transition_to_state(States.SCAN)
+                    self.robot.drive(-0.1, -0.1)
+                    self.sub_state = 7
 
             elif self.sub_state == 4 and not self.robot.busy:
-                self.robot.drive(self.move_distance - 0.05)
+                self.robot.drive(self.move_distance - 0.1)
                 self.sub_state = 5
 
             elif self.sub_state == 5 and not self.robot.busy:
@@ -393,13 +405,16 @@ class TRescue(LifecycleNode):
 
                 self.transition_to_state(States.GRAB_BALL)
 
+            elif self.sub_state == 7 and not self.robot.busy:
+                self.transition_to_state(States.SCAN)
+
         elif self.current_state == States.GRAB_BALL:
             # Pick up ball
             if not self.state_started and not self.robot.busy:
                 self.get_logger().info('Grabbing ball...')
                 self.state_started = True
 
-                self.robot.drive(0.1, velocity=50)
+                self.robot.drive(0.15, velocity=50)
 
                 self.sub_state = 0
 
@@ -414,16 +429,18 @@ class TRescue(LifecycleNode):
                 and not self.servo_busy
                 and now >= self.servo_available_time
             ):
-                if self.claw_tof_dist < 0.05 and self.claw_tof_dist > 0:
-                    self.get_logger().info('ball is probably in the claw')
+                # if self.claw_tof_dist < 0.05 and self.claw_tof_dist > 0:
+                self.get_logger().info('ball is probably in the claw')
 
-                    self.balls_found += 1
+                self.balls_found += 1
 
-                    self.get_logger().info('Reversing...')
-                    self.robot.drive(-0.1)
-                else:
-                    self.get_logger().info('where is the ball')
-                    self.get_logger().info('assuming ball is not grabbed')
+                self.get_logger().info('Reversing...')
+                self.robot.drive(-0.15)
+                # else:
+                #     self.get_logger().info('where is the ball')
+                #     self.get_logger().info(f'distance reading: {self.claw_tof_dist}')
+                #     self.get_logger().info('assuming ball is not grabbed')
+                #     self.robot.drive(-0.15, -0.1)
 
                 self.sub_state = 2
 
@@ -434,7 +451,7 @@ class TRescue(LifecycleNode):
             elif self.sub_state == 3 and not self.servo_busy and now >= self.servo_available_time:
                 # TODO: Add a check to make sure ball is actually picked up (limit switch)
 
-                self.target_timestamp = now + rclpy.duration.Duration(seconds=3.0)
+                self.target_timestamp = now + rclpy.duration.Duration(seconds=2.0)
                 self.sub_state = 4
 
             elif now >= self.target_timestamp and self.sub_state == 4:
@@ -623,15 +640,14 @@ class TRescue(LifecycleNode):
 
             centre_x = detection.bbox.center.position.x
             # centre_y = detection.bbox.center.position.y
-            width = detection.bbox.size_x
+            # width = detection.bbox.size_x
             height = detection.bbox.size_y
 
             if class_id in ['ball', 'silver', 'black']:
-                average_dimension = (width + height) / 2
-                distance = (self.fx * self.ball_radius) / average_dimension
+                distance = (self.fy * self.ball_radius) / height
 
             elif class_id in ['red', 'green']:
-                distance = (self.fy * 0.06) / height
+                distance = (self.fy * self.evac_point_height) / height
 
             else:
                 self.get_logger().warn(f'Class id is not valid: {class_id}')
@@ -856,8 +872,8 @@ class Movement:
 
     def drive(self, distance, angle=0, velocity=100):
         self.node.get_logger().info(f'Drive called with distance {distance} and angle {angle}')
-        distance *= 510
-        angle *= 2.1
+        distance *= 500
+        angle *= 1.2
         linear_time = abs(distance) / abs(velocity) if velocity != 0 and distance != 0 else 0.0
         angular_time = abs(angle) / abs(velocity) if velocity != 0 and angle != 0 else 0.0
         time_required = max(linear_time, angular_time)
