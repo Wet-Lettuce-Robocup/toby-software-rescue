@@ -7,14 +7,15 @@ import cv2
 try:
     from hailo_platform import VDevice
     from libcamera import Transform
+    from picamera2 import Picamera2
 except ImportError:
     from unittest.mock import MagicMock
 
     VDevice = MagicMock()
     Transform = MagicMock()
+    Picamera2 = MagicMock()
 
 import numpy as np
-from picamera2 import Picamera2
 
 
 class RobotRescueCam:
