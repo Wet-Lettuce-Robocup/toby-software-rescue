@@ -6,12 +6,13 @@ import cv2
 
 try:
     from hailo_platform import VDevice
+    from libcamera import Transform
 except ImportError:
     from unittest.mock import MagicMock
 
     VDevice = MagicMock()
+    Transform = MagicMock()
 
-from libcamera import Transform
 import numpy as np
 from picamera2 import Picamera2
 
